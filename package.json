@@ -8,9 +8,12 @@
   },
   "type": "module",
   "scripts": {
+    "dev": "docker compose up -d --wait && turbo run dev",
+    "dev:down": "docker compose down",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

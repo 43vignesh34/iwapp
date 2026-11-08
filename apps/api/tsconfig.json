@@ -1,0 +1,4 @@
+{
+  "extends": "@iwapp/config/tsconfig/node.json",
+  "include": ["src", "vitest.config.ts"]
+}

@@ -1,5 +1,5 @@
 # CI: runs on every pull request and on every push to main.
-# Later tasks add jobs here: unit tests (T2), integration tests (T4), e2e (T9).
+# Later tasks add jobs here: integration tests (T4) and e2e (T9).
 name: CI
 
 on:
@@ -38,6 +38,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm build
 
   secrets:

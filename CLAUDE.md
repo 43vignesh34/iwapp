@@ -110,13 +110,17 @@ Keep this list current as you build:
 
 ```
 pnpm install                 # install all workspaces
-pnpm dev                     # docker compose up (Postgres, Grafana LGTM) + api + web
-pnpm test                    # unit tests
-pnpm test:int                # integration tests (Testcontainers)
-pnpm e2e                     # Playwright against the local stack
+pnpm dev                     # docker compose up --wait (Postgres :5433, Grafana :3000) + api (:4000)
+pnpm dev:down                # stop the Compose stack (data volumes are kept)
+pnpm test                    # unit tests (Vitest)
 pnpm lint && pnpm typecheck
-pnpm db:migrate              # apply Drizzle migrations
-pnpm seed --size=small       # deterministic synthetic data (--seed=108)
+pnpm format                  # Prettier (format:check in CI)
+pnpm build                   # build every workspace (Turborepo)
+# Coming later in M0:
+pnpm test:int                # integration tests (Testcontainers)            T4
+pnpm db:migrate              # apply Drizzle migrations                      T4
+pnpm seed --size=small       # deterministic synthetic data (--seed=108)     T5
+pnpm e2e                     # Playwright against the local stack            T9
 ```
 
 ## Safety rails
