@@ -21,6 +21,8 @@ jobs:
     name: Format, lint, typecheck, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TURBO_TELEMETRY_DISABLED: 1 # no usage telemetry from CI
     steps:
       - uses: actions/checkout@v7
 
@@ -34,12 +36,21 @@ jobs:
 
       # --frozen-lockfile: fail if package.json and pnpm-lock.yaml disagree,
       # instead of quietly resolving new versions on the CI machine.
-      - run: pnpm install --frozen-lockfile
+      - id: install
+        run: pnpm install --frozen-lockfile
+
+      # Each check runs even if an earlier check failed, so one CI run shows every problem.
+      # They're skipped only if the install failed, or if the run was cancelled.
       - run: pnpm format:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
 
   secrets:
     name: Secret scan
