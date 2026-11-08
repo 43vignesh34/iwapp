@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output and caches
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# test output
+playwright-report/
+test-results/
+
+# environment (only .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
