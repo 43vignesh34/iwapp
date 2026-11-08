@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+**/dist/
+**/coverage/
+**/.turbo/
+# Source documents kept exactly as written; not reformatted by tooling.
+CLAUDE.md
+specs/
+prompts/
