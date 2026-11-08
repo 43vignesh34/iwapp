@@ -11,11 +11,13 @@ The congregation management app for ISKCON Whitefield: members, the Sector → C
 
 ## Quickstart
 
-You need **Node 24** and **Docker**. Docker becomes necessary from M0 task 2.
+You need **Node 24** and **Docker Desktop** (running).
 
 ```sh
 corepack enable pnpm   # once per machine; installs the pnpm version pinned in package.json
 pnpm install
+cp .env.example .env   # optional: the defaults work locally
+pnpm dev               # Postgres + Grafana in Docker, then the API with reload on save
 ```
 
 ## Commands
@@ -23,12 +25,24 @@ pnpm install
 | Command          | What it does                                             |
 | ---------------- | -------------------------------------------------------- |
 | `pnpm install`   | Install every workspace's dependencies                   |
+| `pnpm dev`       | Start Compose (`--wait` for healthy), then the API       |
+| `pnpm dev:down`  | Stop the Compose stack (data volumes are kept)           |
+| `pnpm test`      | Unit tests (Vitest)                                      |
 | `pnpm build`     | Build all packages, in dependency order (Turborepo)      |
 | `pnpm lint`      | ESLint, with type-aware rules                            |
 | `pnpm typecheck` | `tsc --noEmit` in every workspace                        |
 | `pnpm format`    | Rewrite files with Prettier (`format:check` only checks) |
 
-Coming in later M0 tasks: `pnpm dev`, `pnpm test`, `pnpm test:int`, `pnpm db:migrate`, `pnpm seed` and `pnpm e2e`.
+Coming in later M0 tasks: `pnpm test:int`, `pnpm db:migrate`, `pnpm seed` and `pnpm e2e`.
+
+## Local URLs
+
+| URL                                           | What                           |
+| --------------------------------------------- | ------------------------------ |
+| http://localhost:4000/healthz                 | API liveness                   |
+| http://localhost:4000/docs                    | Swagger UI (not in production) |
+| http://localhost:3000                         | Grafana (admin / admin)        |
+| `postgres://iwapp:iwapp@localhost:5433/iwapp` | Local Postgres                 |
 
 ## Layout
 

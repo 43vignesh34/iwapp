@@ -1,14 +1,63 @@
 // Shared ESLint preset. Each workspace has a two-line eslint.config.js that calls this.
 import js from '@eslint/js';
+import boundaries from 'eslint-plugin-boundaries';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * @param {{ tsconfigRootDir: string }} options
- *   tsconfigRootDir: the workspace folder, so type-aware rules find the right tsconfig.json.
+ * Module boundaries (CLAUDE.md → Coding conventions → Modules, and ADR 0001).
+ * Each folder in src/modules/<domain>/ is a module. Code in one module may import another
+ * module only through that module's index.ts, never its routes, service or repo directly.
+ * Inside its own module, a file may import anything.
  */
-export function iwappEslint({ tsconfigRootDir }) {
+const moduleBoundaries = {
+  plugins: { boundaries },
+  settings: {
+    'boundaries/elements': [{ type: 'module', pattern: 'src/modules/*', capture: ['domain'] }],
+  },
+  rules: {
+    'boundaries/dependencies': [
+      'error',
+      {
+        default: 'allow',
+        policies: [
+          {
+            // Later policies win, so start by forbidding every module → module import…
+            from: { element: { type: 'module' } },
+            disallow: { to: { element: { type: 'module' } } },
+            message:
+              'Import other modules only through their index.ts ({{ to.element.captured.domain }} module)',
+          },
+          {
+            // …then allow importing a module's public index.ts…
+            from: { element: { type: 'module' } },
+            allow: { to: { element: { type: 'module', fileInternalPath: 'index.ts' } } },
+          },
+          {
+            // …and allow any import inside the same module.
+            from: { element: { type: 'module' } },
+            allow: {
+              to: {
+                element: {
+                  type: 'module',
+                  captured: { domain: '{{ from.element.captured.domain }}' },
+                },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  },
+};
+
+/**
+ * @param {{ tsconfigRootDir: string, moduleBoundaries?: boolean }} options
+ *   tsconfigRootDir:  the workspace folder, so type-aware rules find the right tsconfig.json.
+ *   moduleBoundaries: turn on the module boundaries rule (apps/api only).
+ */
+export function iwappEslint({ tsconfigRootDir, moduleBoundaries: withBoundaries = false }) {
   return defineConfig(
     globalIgnores(['dist/**', 'coverage/**', '.turbo/**']),
     js.configs.recommended,
@@ -25,6 +74,8 @@ export function iwappEslint({ tsconfigRootDir }) {
         '@typescript-eslint/consistent-type-imports': 'error',
       },
     },
+
+    withBoundaries ? { files: ['src/**/*.ts'], ...moduleBoundaries } : {},
 
     // Plain JS files (config files) aren't in a tsconfig, so skip the type-aware rules for them.
     {

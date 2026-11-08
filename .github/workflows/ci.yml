@@ -1,5 +1,5 @@
 # CI: runs on every pull request and on every push to main.
-# Later tasks add jobs here: unit tests (T2), integration tests (T4), e2e (T9).
+# Later tasks add jobs here: integration tests (T4) and e2e (T9).
 name: CI
 
 on:
@@ -21,6 +21,8 @@ jobs:
     name: Format, lint, typecheck, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TURBO_TELEMETRY_DISABLED: 1 # no usage telemetry from CI
     steps:
       - uses: actions/checkout@v7
 
@@ -34,11 +36,21 @@ jobs:
 
       # --frozen-lockfile: fail if package.json and pnpm-lock.yaml disagree,
       # instead of quietly resolving new versions on the CI machine.
-      - run: pnpm install --frozen-lockfile
+      - id: install
+        run: pnpm install --frozen-lockfile
+
+      # Each check runs even if an earlier check failed, so one CI run shows every problem.
+      # They're skipped only if the install failed, or if the run was cancelled.
       - run: pnpm format:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - run: pnpm test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
 
   secrets:
     name: Secret scan
