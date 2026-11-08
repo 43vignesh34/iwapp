@@ -1,35 +1,38 @@
 # 0005. Public repository
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-08
-- **Deciders:** <!-- TODO(human): who decided this? -->
-
-<!--
-TODO(human): write this ADR yourself. It's your decision, so you can explain it best.
-
-Context, from our conversation:
-  - Spec §1 (D4) and §11 say "private GitHub repo".
-  - On GitHub Free, private repos get no branch protection, so nothing technically
-    stops a merge to main with red CI.
-  - We chose to make the repo public instead (2026-11-08).
-
-Hints for each section (2–5 bullets each is plenty):
-  Context:      what problem forced a choice? What were the options?
-                (private + GitHub Pro, a nonprofit organisation, or public)
-  Decision:     one or two sentences, stated plainly.
-  Consequences: be honest about both sides.
-     + what do we gain? (branch protection, CodeQL, Actions minutes…)
-     - what do we risk? (the spec and PRD are public; a leaked secret is
-       visible to the world; commit emails, and what we did about them)
-     What do we now have to do to stay safe? (gitleaks in CI,
-     GitHub secret scanning with push protection, no real data ever)
-  Revisit when: what would make us go private again?
-
-Look at 0004 for the shape. Delete this comment when you're done.
--->
+- **Deciders:** project owner (43vignesh34)
+- **Supersedes:** the "private GitHub repo" in spec §1 (D4) and §11
 
 ## Context
 
+- The spec assumed a private repo with branch protection on `main` and required checks.
+- On GitHub Free, private repos get no branch protection or rulesets, so nothing would technically stop a merge with red CI.
+- The options were:
+  - a private repo with GitHub Pro, at about US$4 a month
+  - a private repo in a GitHub organisation on the nonprofit plan, which needs the temple to set up the organisation first
+  - a public repo on GitHub Free
+
 ## Decision
 
+The `iwapp` repository is **public**.
+
 ## Consequences
+
+- **Good:**
+  - free branch protection and required status checks
+  - free CodeQL and secret scanning with push protection
+  - unlimited GitHub Actions minutes on standard runners
+- **Bad:**
+  - the spec, PRD and working agreement are public
+  - any secret committed by mistake is visible to everyone at once, and deleting it later doesn't remove it from git history
+  - commit author emails are public
+- **What we do about it:**
+  - commits use the GitHub noreply email
+  - gitleaks scans the full history on every PR
+  - GitHub secret scanning with push protection is on
+  - no `.env` files are committed, only `.env.example`
+  - only synthetic data, ever, in fixtures, screenshots and logs (`CLAUDE.md`)
+  - a leaked secret is rotated at once; rewriting history is not enough
+- **Revisit when:** the temple sets up a nonprofit GitHub organisation, or the repo has to hold anything that can't be public. A transfer to an organisation keeps the history, and visibility can be switched to private then.
