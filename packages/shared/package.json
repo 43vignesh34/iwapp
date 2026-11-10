@@ -16,7 +16,11 @@
   },
   "devDependencies": {
     "@iwapp/config": "workspace:*",
+    "@types/node": "~24.19.2",
     "eslint": "^10.14.0",
     "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }

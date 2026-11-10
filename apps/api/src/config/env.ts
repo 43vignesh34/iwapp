@@ -26,18 +26,46 @@ export const EnvSchema = z
 
     // postgres://user:password@host:port/database. Optional here; see the rule below.
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+
+    // Signs the 15-minute access JWT. At least 32 characters (256 bits for HS256).
+    // Optional here; required in production (see below). Generate one with:
+    //   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+    JWT_SECRET: z.string().min(32).optional(),
+
+    // Enables POST /api/v1/auth/test-login (sign in by email, no Google). Automated tests only.
+    AUTH_TEST_MODE: z.stringbool().default(false),
   })
-  // Outside production, default to the Compose database so `pnpm dev` works with no .env.
-  // In production a missing DATABASE_URL must stop the boot: silently connecting to
-  // "localhost" would fail later and more confusingly.
+  // Outside production, fall back to local defaults so `pnpm dev` works with no .env.
+  // In production, anything missing or unsafe must stop the boot: failing later would be
+  // more confusing, and failing open would be dangerous.
   .transform((env, ctx) => {
-    if (env.DATABASE_URL) return { ...env, DATABASE_URL: env.DATABASE_URL };
-    if (env.NODE_ENV === 'production') {
-      ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required in production' });
-      return z.NEVER;
+    const production = env.NODE_ENV === 'production';
+    if (production) {
+      if (!env.DATABASE_URL) {
+        ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required in production' });
+      }
+      if (!env.JWT_SECRET) {
+        ctx.addIssue({ code: 'custom', path: ['JWT_SECRET'], message: 'Required in production' });
+      }
+      // The test identity provider signs anyone in by email alone. It must be impossible to
+      // switch on in production, so the production build refuses to start (spec §10).
+      if (env.AUTH_TEST_MODE) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['AUTH_TEST_MODE'],
+          message: 'Must not be enabled in production: refusing to start',
+        });
+      }
     }
-    return { ...env, DATABASE_URL: LOCAL_DATABASE_URL };
+    return {
+      ...env,
+      DATABASE_URL: env.DATABASE_URL ?? LOCAL_DATABASE_URL,
+      JWT_SECRET: env.JWT_SECRET ?? INSECURE_LOCAL_JWT_SECRET,
+    };
   });
+
+/** Outside production only. Anyone can read it in this file, so it protects nothing real. */
+const INSECURE_LOCAL_JWT_SECRET = 'insecure-local-development-jwt-secret-not-for-prod';
 
 export type Env = z.infer<typeof EnvSchema>;
 

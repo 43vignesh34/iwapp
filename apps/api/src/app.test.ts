@@ -13,7 +13,13 @@ afterEach(async () => {
 const NO_DATABASE = 'postgres://nobody:nothing@127.0.0.1:1/none';
 
 async function appFor(nodeEnv: 'test' | 'production' = 'test') {
-  app = await buildApp(loadEnv({ NODE_ENV: nodeEnv, DATABASE_URL: NO_DATABASE }));
+  app = await buildApp(
+    loadEnv({
+      NODE_ENV: nodeEnv,
+      DATABASE_URL: NO_DATABASE,
+      JWT_SECRET: 'unit-test-secret-'.padEnd(32, 'x'),
+    }),
+  );
   return app;
 }
 

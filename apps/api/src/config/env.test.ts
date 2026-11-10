@@ -9,6 +9,8 @@ describe('loadEnv', () => {
       HOST: '127.0.0.1',
       LOG_LEVEL: 'info',
       DATABASE_URL: 'postgres://iwapp:iwapp@localhost:5433/iwapp',
+      JWT_SECRET: 'insecure-local-development-jwt-secret-not-for-prod',
+      AUTH_TEST_MODE: false,
     });
   });
 
@@ -28,8 +30,27 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
   });
 
+  const PROD = {
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgres://u:p@db.internal/iwapp',
+    JWT_SECRET: 'x'.repeat(32),
+  };
+
+  it('accepts a complete production environment', () => {
+    expect(loadEnv(PROD).AUTH_TEST_MODE).toBe(false);
+  });
+
+  it('REFUSES to start in production with AUTH_TEST_MODE on', () => {
+    expect(() => loadEnv({ ...PROD, AUTH_TEST_MODE: 'true' })).toThrow(/AUTH_TEST_MODE/);
+  });
+
+  it('requires a JWT_SECRET of at least 32 characters in production', () => {
+    expect(() => loadEnv({ ...PROD, JWT_SECRET: undefined })).toThrow(/JWT_SECRET/);
+    expect(() => loadEnv({ ...PROD, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
+  });
+
   it('requires DATABASE_URL in production', () => {
-    expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/DATABASE_URL/);
+    expect(() => loadEnv({ ...PROD, DATABASE_URL: undefined })).toThrow(/DATABASE_URL/);
   });
 
   it('rejects a DATABASE_URL that is not a postgres URL', () => {

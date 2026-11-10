@@ -6,6 +6,13 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type { Env } from './config/env.ts';
+import { API_BASE_PATH } from '@iwapp/shared';
+import {
+  authRoutes,
+  registerAuthentication,
+  secretKey,
+  testIdpRoutes,
+} from './modules/auth/index.ts';
 import { healthRoutes } from './modules/health/index.ts';
 import { registerDocs } from './plugins/docs.ts';
 import { registerProblemHandlers } from './plugins/problem.ts';
@@ -55,7 +62,17 @@ export async function buildApp(env: Env) {
     await registerDocs(app);
   }
 
+  // Authentication, deny-by-default and CSRF for everything under /api/v1.
+  const key = secretKey(env.JWT_SECRET);
+  await registerAuthentication(app, key);
+
   await app.register(healthRoutes);
+  await app.register(authRoutes, { prefix: API_BASE_PATH, key });
+  if (env.AUTH_TEST_MODE) {
+    // Never in production: loadEnv() refuses to start with AUTH_TEST_MODE there.
+    app.log.warn('AUTH_TEST_MODE is on: POST /api/v1/auth/test-login signs anyone in by email');
+    await app.register(testIdpRoutes, { prefix: API_BASE_PATH, key });
+  }
 
   return app;
 }

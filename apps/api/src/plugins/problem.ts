@@ -1,6 +1,7 @@
 import { STATUS_CODES } from 'node:http';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
+import { AppError, STATUS_FOR_KIND } from '../errors.ts';
 
 /**
  * RFC 9457 "Problem Details for HTTP APIs": every error response from IWApp has this shape,
@@ -68,7 +69,16 @@ export function registerProblemHandlers(app: FastifyInstance) {
       });
     }
 
-    // 2. A client error Fastify already understands (bad JSON, wrong content type, too large…).
+    // 2. A business-rule error from a service: its message is written for the client.
+    if (error instanceof AppError) {
+      return sendProblem(request, reply, {
+        status: STATUS_FOR_KIND[error.kind],
+        code: error.code,
+        detail: error.message,
+      });
+    }
+
+    // 3. A client error Fastify already understands (bad JSON, wrong content type, too large…).
     //    These messages come from Fastify itself, so they're safe to show.
     const status = error.statusCode ?? 500;
     if (status >= 400 && status < 500) {
@@ -79,7 +89,7 @@ export function registerProblemHandlers(app: FastifyInstance) {
       });
     }
 
-    // 3. Anything else is our bug. Log everything; tell the client nothing internal, since an
+    // 4. Anything else is our bug. Log everything; tell the client nothing internal, since an
     //    error message can contain SQL, file paths or personal data.
     request.log.error({ err: error }, 'unhandled error');
     return sendProblem(request, reply, { status: 500, code: 'INTERNAL_ERROR' });
