@@ -12,3 +12,4 @@ Each ADR records one decision: the context, what we decided and what follows fro
 | [0006](0006-m0-scope-decisions.md)     | M0 scope adjustments                    | Accepted |
 | [0007](0007-typescript-6.md)           | Stay on TypeScript 6.0 for now          | Accepted |
 | [0008](0008-node-native-typescript.md) | Node built-in TypeScript type stripping | Accepted |
+| [0009](0009-table-conventions.md)      | Table conventions and their exceptions  | Accepted |

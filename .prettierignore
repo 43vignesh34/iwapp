@@ -6,3 +6,5 @@ pnpm-lock.yaml
 CLAUDE.md
 specs/
 prompts/
+# Generated and owned by drizzle-kit
+db/migrations/meta/

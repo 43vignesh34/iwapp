@@ -6,4 +6,10 @@ packages:
 # pnpm runs a dependency's install script only if it's listed here as true (supply-chain safety).
 # protobufjs (via OpenTelemetry) only runs a version check on install; it works without it.
 allowBuilds:
+  # esbuild (via drizzle-kit, Vite): its script installs/verifies the native binary. Trusted, widely used.
+  esbuild: true
   protobufjs: false
+  # ssh2/cpu-features (via Testcontainers): optional native speed-ups for Docker-over-SSH, which
+  # we don't use (local Docker socket). Both fall back to plain JavaScript.
+  cpu-features: false
+  ssh2: false

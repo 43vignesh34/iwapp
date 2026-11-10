@@ -22,18 +22,21 @@ pnpm dev               # Postgres + Grafana in Docker, then the API with reload 
 
 ## Commands
 
-| Command          | What it does                                             |
-| ---------------- | -------------------------------------------------------- |
-| `pnpm install`   | Install every workspace's dependencies                   |
-| `pnpm dev`       | Start Compose (`--wait` for healthy), then the API       |
-| `pnpm dev:down`  | Stop the Compose stack (data volumes are kept)           |
-| `pnpm test`      | Unit tests (Vitest)                                      |
-| `pnpm build`     | Build all packages, in dependency order (Turborepo)      |
-| `pnpm lint`      | ESLint, with type-aware rules                            |
-| `pnpm typecheck` | `tsc --noEmit` in every workspace                        |
-| `pnpm format`    | Rewrite files with Prettier (`format:check` only checks) |
+| Command            | What it does                                             |
+| ------------------ | -------------------------------------------------------- |
+| `pnpm install`     | Install every workspace's dependencies                   |
+| `pnpm dev`         | Start Compose (`--wait` for healthy), then the API       |
+| `pnpm dev:down`    | Stop the Compose stack (data volumes are kept)           |
+| `pnpm test`        | Unit tests (Vitest)                                      |
+| `pnpm test:int`    | Integration tests against real Postgres (needs Docker)   |
+| `pnpm db:migrate`  | Apply pending migrations                                 |
+| `pnpm db:generate` | Generate a SQL migration from schema changes             |
+| `pnpm build`       | Build all packages, in dependency order (Turborepo)      |
+| `pnpm lint`        | ESLint, with type-aware rules                            |
+| `pnpm typecheck`   | `tsc --noEmit` in every workspace                        |
+| `pnpm format`      | Rewrite files with Prettier (`format:check` only checks) |
 
-Coming in later M0 tasks: `pnpm test:int`, `pnpm db:migrate`, `pnpm seed` and `pnpm e2e`.
+Coming in later M0 tasks: `pnpm seed` and `pnpm e2e`.
 
 ## Local URLs
 

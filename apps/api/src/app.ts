@@ -1,3 +1,4 @@
+import { createDb, type Db } from '@iwapp/db';
 import Fastify from 'fastify';
 import {
   serializerCompiler,
@@ -39,6 +40,14 @@ export async function buildApp(env: Env) {
     reply.header('x-request-id', request.id);
   });
 
+  // One connection pool for the whole app. Creating it doesn't connect yet: connections open on
+  // first query. Modules reach it as `app.db`; services pass it (or a transaction) to repos.
+  const { db, pool } = createDb(env.DATABASE_URL);
+  app.decorate('db', db);
+  app.addHook('onClose', async () => {
+    await pool.end();
+  });
+
   registerRequestTelemetry(app);
   registerProblemHandlers(app);
   await registerSecurity(app);
@@ -52,3 +61,10 @@ export async function buildApp(env: Env) {
 }
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
+
+// Tell TypeScript that every Fastify instance has the `db` we decorated it with above.
+declare module 'fastify' {
+  interface FastifyInstance {
+    db: Db;
+  }
+}

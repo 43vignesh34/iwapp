@@ -9,8 +9,11 @@ afterEach(async () => {
   app = undefined;
 });
 
+// Nothing listens on port 1, so any query fails fast. Unit tests never need a real database.
+const NO_DATABASE = 'postgres://nobody:nothing@127.0.0.1:1/none';
+
 async function appFor(nodeEnv: 'test' | 'production' = 'test') {
-  app = await buildApp(loadEnv({ NODE_ENV: nodeEnv }));
+  app = await buildApp(loadEnv({ NODE_ENV: nodeEnv, DATABASE_URL: NO_DATABASE }));
   return app;
 }
 
@@ -24,6 +27,14 @@ describe('GET /healthz', () => {
   it('sends security headers', async () => {
     const res = await (await appFor()).inject({ method: 'GET', url: '/healthz' });
     expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+});
+
+describe('GET /readyz', () => {
+  it('returns a 503 NOT_READY problem when the database is unreachable', async () => {
+    const res = await (await appFor()).inject({ method: 'GET', url: '/readyz' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ status: 503, code: 'NOT_READY' });
   });
 });
 

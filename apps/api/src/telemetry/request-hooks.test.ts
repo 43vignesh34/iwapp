@@ -27,7 +27,9 @@ afterAll(() => {
 
 async function spanFor(url: string) {
   exporter.reset();
-  const app = await buildApp(loadEnv({ NODE_ENV: 'test' }));
+  const app = await buildApp(
+    loadEnv({ NODE_ENV: 'test', DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:1/none' }),
+  );
   const span = trace.getTracer('test').startSpan('GET');
   // The `await` must be INSIDE the callback. inject() returns a lazy thenable that only sends the
   // request when awaited; `() => app.inject(...)` would await it outside the span's context.

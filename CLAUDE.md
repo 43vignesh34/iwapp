@@ -110,15 +110,16 @@ Keep this list current as you build:
 
 ```
 pnpm install                 # install all workspaces
-pnpm dev                     # docker compose up --wait (Postgres :5433, Grafana :3000) + api (:4000)
+pnpm dev                     # docker compose up --wait (Postgres :5433, Grafana :3000) + migrate + api (:4000)
 pnpm dev:down                # stop the Compose stack (data volumes are kept)
 pnpm test                    # unit tests (Vitest)
 pnpm lint && pnpm typecheck
+pnpm test:int                # integration tests (Testcontainers; Docker must be running)
+pnpm db:migrate              # apply Drizzle migrations (DATABASE_URL, default: local Compose DB)
+pnpm db:generate             # write a new SQL migration from db/src/schema changes; READ IT
 pnpm format                  # Prettier (format:check in CI)
 pnpm build                   # build every workspace (Turborepo)
 # Coming later in M0:
-pnpm test:int                # integration tests (Testcontainers)            T4
-pnpm db:migrate              # apply Drizzle migrations                      T4
 pnpm seed --size=small       # deterministic synthetic data (--seed=108)     T5
 pnpm e2e                     # Playwright against the local stack            T9
 ```

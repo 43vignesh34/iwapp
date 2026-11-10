@@ -1,3 +1,4 @@
+import { LOCAL_DATABASE_URL } from '@iwapp/db';
 import { z } from 'zod';
 
 /**
@@ -7,19 +8,36 @@ import { z } from 'zod';
  * message, rather than boot and fail later, halfway through a request. Nothing else in the
  * API reads `process.env`. Code receives the typed `Env` object instead.
  */
-export const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+export const EnvSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-  // Env vars are always strings, so coerce "4000" → 4000. Note PORT="" is rejected, not
-  // defaulted: `.default()` only applies to undefined, and Number("") is 0, which fails min(1).
-  PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    // Env vars are always strings, so coerce "4000" → 4000. Note PORT="" is rejected, not
+    // defaulted: `.default()` only applies to undefined, and Number("") is 0, which fails min(1).
+    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
 
-  // 127.0.0.1 keeps the API off your network locally; containers set HOST=0.0.0.0.
-  HOST: z.string().min(1).default('127.0.0.1'),
+    // 127.0.0.1 keeps the API off your network locally; containers set HOST=0.0.0.0.
+    HOST: z.string().min(1).default('127.0.0.1'),
 
-  // Pino levels. 'silent' turns logging off (tests use it).
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-});
+    // Pino levels. 'silent' turns logging off (tests use it).
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+
+    // postgres://user:password@host:port/database. Optional here; see the rule below.
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  })
+  // Outside production, default to the Compose database so `pnpm dev` works with no .env.
+  // In production a missing DATABASE_URL must stop the boot: silently connecting to
+  // "localhost" would fail later and more confusingly.
+  .transform((env, ctx) => {
+    if (env.DATABASE_URL) return { ...env, DATABASE_URL: env.DATABASE_URL };
+    if (env.NODE_ENV === 'production') {
+      ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required in production' });
+      return z.NEVER;
+    }
+    return { ...env, DATABASE_URL: LOCAL_DATABASE_URL };
+  });
 
 export type Env = z.infer<typeof EnvSchema>;
 

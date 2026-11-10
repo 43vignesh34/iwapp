@@ -8,6 +8,7 @@ describe('loadEnv', () => {
       PORT: 4000,
       HOST: '127.0.0.1',
       LOG_LEVEL: 'info',
+      DATABASE_URL: 'postgres://iwapp:iwapp@localhost:5433/iwapp',
     });
   });
 
@@ -25,6 +26,14 @@ describe('loadEnv', () => {
 
   it('rejects an unknown LOG_LEVEL', () => {
     expect(() => loadEnv({ LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
+  });
+
+  it('requires DATABASE_URL in production', () => {
+    expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/DATABASE_URL/);
+  });
+
+  it('rejects a DATABASE_URL that is not a postgres URL', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'mysql://x@y/z' })).toThrow(/DATABASE_URL/);
   });
 
   it('accepts HOST=0.0.0.0, which containers need', () => {
