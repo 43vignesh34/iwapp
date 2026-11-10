@@ -18,6 +18,7 @@ import {
   type GoogleVerifier,
 } from './modules/auth/index.ts';
 import { healthRoutes } from './modules/health/index.ts';
+import { membersRoutes } from './modules/members/index.ts';
 import { usersRoutes } from './modules/users/index.ts';
 import { registerActorScope } from './plugins/actor-scope.ts';
 import { registerDocs } from './plugins/docs.ts';
@@ -98,6 +99,7 @@ export async function buildApp(env: Env, overrides: AppOverrides = {}) {
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: API_BASE_PATH, key });
   await app.register(usersRoutes, { prefix: API_BASE_PATH });
+  await app.register(membersRoutes, { prefix: API_BASE_PATH });
   const verifyGoogleToken =
     overrides.verifyGoogleToken ??
     (env.GOOGLE_CLIENT_ID ? createGoogleVerifier(env.GOOGLE_CLIENT_ID) : undefined);

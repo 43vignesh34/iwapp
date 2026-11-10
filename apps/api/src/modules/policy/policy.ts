@@ -22,8 +22,7 @@ export interface PersonResource {
   unitIds: readonly string[];
 }
 
-export type Action =
-  'member.list' | 'member.read' | 'member.update.contact' | 'user.list' | 'user.invite';
+export type Action = 'member.list' | 'member.read' | 'member.update' | 'user.list' | 'user.invite';
 
 type Rule = (actor: PolicyActor, resource: PersonResource | undefined) => boolean;
 
@@ -42,9 +41,9 @@ const RULES: Partial<Record<Action, Rule>> = {
   'member.list': (actor) => isLeader(actor),
   // Everyone sees their own profile; leaders see members in their scope.
   'member.read': (actor, resource) => isSelf(actor, resource) || inScope(actor, resource),
-  // Members edit their own contact details. Leaders editing members' contact details is open
+  // Members correct their own contact and personal fields. Leaders editing members' contact details is open
   // question Q2, so it stays denied (admin-only) until Q2 is answered.
-  'member.update.contact': (actor, resource) => isSelf(actor, resource),
+  'member.update': (actor, resource) => isSelf(actor, resource),
   // 'user.list' and 'user.invite': no rule, so admin-only.
 };
 

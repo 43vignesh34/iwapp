@@ -30,12 +30,12 @@ describe('authorize', () => {
   });
 
   it('lets members edit their own contact details, not others', () => {
-    expect(authorize(member, 'member.update.contact', memberProfile)).toBe(true);
-    expect(authorize(member, 'member.update.contact', udupiPerson)).toBe(false);
+    expect(authorize(member, 'member.update', memberProfile)).toBe(true);
+    expect(authorize(member, 'member.update', udupiPerson)).toBe(false);
   });
 
   it('keeps leaders from editing contact details until Q2 is answered', () => {
-    expect(authorize(dwarkaLeader, 'member.update.contact', memberProfile)).toBe(false);
+    expect(authorize(dwarkaLeader, 'member.update', memberProfile)).toBe(false);
   });
 
   it('denies by default: user management is admin-only', () => {

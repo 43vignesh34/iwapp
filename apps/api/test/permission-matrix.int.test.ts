@@ -32,6 +32,8 @@ interface Fixtures {
   dwarkaMemberId: string;
   /** Returns a different person without a login each call (for invites). */
   nextPersonWithoutLogin: () => string;
+  /** The person's current version, for If-Match (it changes as rows succeed). */
+  versionOf: (personId: string) => Promise<number>;
 }
 
 interface MatrixRow {
@@ -40,6 +42,7 @@ interface MatrixRow {
   route: string;
   url: (fx: Fixtures) => string;
   body?: (fx: Fixtures) => object;
+  headers?: (fx: Fixtures) => Promise<Record<string, string>>;
   expect: Record<Persona, number>;
 }
 
@@ -86,6 +89,28 @@ export const MATRIX: MatrixRow[] = [
     }),
     expect: ADMIN_ONLY(201),
   },
+  {
+    method: 'GET',
+    route: '/api/v1/members',
+    url: () => '/api/v1/members',
+    // Leaders list their own scope (out-of-scope leaders still get 200, with their own members).
+    expect: { anonymous: 401, member: 403, leaderInScope: 200, leaderOutOfScope: 200, admin: 200 },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/members/{id}',
+    url: (fx) => `/api/v1/members/${fx.dwarkaMemberId}`,
+    expect: { anonymous: 401, member: 200, leaderInScope: 200, leaderOutOfScope: 403, admin: 200 },
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/members/{id}',
+    url: (fx) => `/api/v1/members/${fx.dwarkaMemberId}`,
+    body: () => ({ locality: `Matrix ${crypto.randomUUID().slice(0, 8)}` }),
+    headers: async (fx) => ({ 'if-match': `"${String(await fx.versionOf(fx.dwarkaMemberId))}"` }),
+    // Self and admins only: leaders editing contact details waits on open question Q2.
+    expect: { anonymous: 401, member: 200, leaderInScope: 403, leaderOutOfScope: 403, admin: 200 },
+  },
 ];
 
 /** Sign-in endpoints have no "signed-in persona" to test; they have their own suites. */
@@ -109,6 +134,13 @@ beforeAll(async () => {
   fx = {
     dwarkaMemberId: member?.personId ?? '',
     nextPersonWithoutLogin: () => spare[next++]?.id ?? '',
+    versionOf: async (personId) => {
+      const [row] = await ctx.database.db
+        .select({ v: person.version })
+        .from(person)
+        .where(eq(person.id, personId));
+      return row?.v ?? 0;
+    },
   };
 });
 afterAll(async () => {
@@ -123,11 +155,13 @@ async function sessionFor(persona: Persona): Promise<CookieJar> {
 describe.each(MATRIX)('$method $route', (row) => {
   it.each(PERSONAS)('%s', async (persona) => {
     const jar = await sessionFor(persona);
+    const session = withSession(jar);
     const res = await ctx.app.inject({
       method: row.method,
       url: row.url(fx),
       ...(row.body ? { payload: row.body(fx) } : {}),
-      ...withSession(jar),
+      cookies: session.cookies,
+      headers: { ...session.headers, ...(row.headers ? await row.headers(fx) : {}) },
     });
     expect(res.statusCode, res.body).toBe(row.expect[persona]);
   });
