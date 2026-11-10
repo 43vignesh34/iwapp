@@ -5,3 +5,5 @@ export { signInWithVerifiedEmail, type Actor, type IssuedSession } from './servi
 export { setSessionCookies } from './cookies.ts';
 export { secretKey } from './tokens.ts';
 export { testIdpRoutes } from './test-idp.ts';
+export { createGoogleVerifier, type GoogleIdentity, type GoogleVerifier } from './google.ts';
+export { googleRoutes } from './google-routes.ts';

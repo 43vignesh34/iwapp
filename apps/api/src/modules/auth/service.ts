@@ -1,7 +1,9 @@
-import type { Db } from '@iwapp/db';
+import type { Db, Tx } from '@iwapp/db';
 import { uuidv7 } from 'uuidv7';
 import { AppError } from '../../errors.ts';
 import { recordAudit } from '../audit/index.ts';
+import type { GoogleIdentity } from './google.ts';
+import { matchInvite } from './invite-match.ts';
 import * as repo from './repo.ts';
 import { REFRESH_TTL_SECONDS, hashToken, newOpaqueToken, signAccessToken } from './tokens.ts';
 
@@ -28,7 +30,7 @@ interface Context {
 }
 
 async function issue(
-  db: Db | Parameters<Parameters<Db['transaction']>[0]>[0],
+  db: Db | Tx,
   ctx: Context,
   userId: string,
   familyId: string,
@@ -47,9 +49,55 @@ async function issue(
   };
 }
 
+const REFUSAL_MESSAGES: Record<'NOT_INVITED' | 'ACCOUNT_DISABLED' | 'ACCOUNT_MISMATCH', string> = {
+  NOT_INVITED: 'Ask an admin to invite you.',
+  ACCOUNT_DISABLED: 'This account has been disabled.',
+  ACCOUNT_MISMATCH:
+    'This email is linked to a different Google account. Ask an admin to check your invite.',
+};
+
+/** Common tail of every sign-in: record the login, activate an invite, start a session family. */
+async function startSession(tx: Tx, ctx: Context, userId: string, activate: boolean) {
+  await repo.markSignedIn(tx, userId, activate);
+  if (activate) {
+    await recordAudit(tx, {
+      actorId: userId,
+      action: 'user.activate',
+      entity: 'app_user',
+      entityId: userId,
+      changes: { status: { old: 'invited', new: 'active' } },
+      requestId: ctx.requestId,
+    });
+  }
+  return issue(tx, ctx, userId, uuidv7()); // a new sign-in starts a new session family
+}
+
 /**
- * Signs in someone whose identity is already proven (by Google, or by the test identity
- * provider), using their verified email. Invite-only (ADR 0003): no row, no account.
+ * Google sign-in (ADR 0003). The identity is already verified (google.ts); this decides which
+ * invited user it may become (invite-match.ts) and starts the session. No invite, no account.
+ */
+export async function signInWithGoogle(
+  db: Db,
+  ctx: Context,
+  identity: GoogleIdentity,
+): Promise<IssuedSession> {
+  return db.transaction(async (tx) => {
+    const decision = matchInvite(
+      identity,
+      await repo.findUserBySub(tx, identity.sub),
+      await repo.findUserByEmail(tx, identity.email),
+    );
+    if (!decision.allow) {
+      throw new AppError('forbidden', decision.code, REFUSAL_MESSAGES[decision.code]);
+    }
+    if (decision.linkSub) await repo.linkGoogleSub(tx, decision.userId, identity.sub);
+    return startSession(tx, ctx, decision.userId, decision.activate);
+  });
+}
+
+/**
+ * TEST IDENTITY PROVIDER ONLY: signs in an invited user by email alone, with no proof of
+ * identity. Reachable only through test-idp.ts, which production can never register.
  */
 export async function signInWithVerifiedEmail(
   db: Db,
@@ -58,25 +106,11 @@ export async function signInWithVerifiedEmail(
 ): Promise<IssuedSession> {
   return db.transaction(async (tx) => {
     const user = await repo.findUserByEmail(tx, email.toLowerCase());
-    if (!user) {
-      throw new AppError('forbidden', 'NOT_INVITED', 'Ask an admin to invite you.');
-    }
+    if (!user) throw new AppError('forbidden', 'NOT_INVITED', REFUSAL_MESSAGES.NOT_INVITED);
     if (user.status === 'disabled') {
-      throw new AppError('forbidden', 'ACCOUNT_DISABLED', 'This account has been disabled.');
+      throw new AppError('forbidden', 'ACCOUNT_DISABLED', REFUSAL_MESSAGES.ACCOUNT_DISABLED);
     }
-    const activating = user.status === 'invited';
-    await repo.markSignedIn(tx, user.id, activating);
-    if (activating) {
-      await recordAudit(tx, {
-        actorId: user.id,
-        action: 'user.activate',
-        entity: 'app_user',
-        entityId: user.id,
-        changes: { status: { old: 'invited', new: 'active' } },
-        requestId: ctx.requestId,
-      });
-    }
-    return issue(tx, ctx, user.id, uuidv7()); // a new sign-in starts a new session family
+    return startSession(tx, ctx, user.id, user.status === 'invited');
   });
 }
 

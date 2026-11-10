@@ -32,6 +32,14 @@ export const EnvSchema = z
     //   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
     JWT_SECRET: z.string().min(32).optional(),
 
+    // OAuth client ID from Google Cloud (…apps.googleusercontent.com). Enables POST
+    // /api/v1/auth/google; tokens minted for any other client ID are rejected. Not a secret.
+    GOOGLE_CLIENT_ID: z.string().endsWith('.apps.googleusercontent.com').optional(),
+
+    // How many proxies sit in front of the API (Cloudflare, Google's front end…). Fastify then
+    // reads the real client IP from X-Forwarded-For, which rate limiting keys on. 0 = trust none.
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+
     // Enables POST /api/v1/auth/test-login (sign in by email, no Google). Automated tests only.
     AUTH_TEST_MODE: z.stringbool().default(false),
   })
@@ -43,6 +51,13 @@ export const EnvSchema = z
     if (production) {
       if (!env.DATABASE_URL) {
         ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required in production' });
+      }
+      if (!env.GOOGLE_CLIENT_ID) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GOOGLE_CLIENT_ID'],
+          message: 'Required in production',
+        });
       }
       if (!env.JWT_SECRET) {
         ctx.addIssue({ code: 'custom', path: ['JWT_SECRET'], message: 'Required in production' });

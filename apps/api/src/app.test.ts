@@ -18,6 +18,7 @@ async function appFor(nodeEnv: 'test' | 'production' = 'test') {
       NODE_ENV: nodeEnv,
       DATABASE_URL: NO_DATABASE,
       JWT_SECRET: 'unit-test-secret-'.padEnd(32, 'x'),
+      GOOGLE_CLIENT_ID: 'unit-test.apps.googleusercontent.com',
     }),
   );
   return app;

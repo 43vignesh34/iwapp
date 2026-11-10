@@ -11,6 +11,7 @@ describe('loadEnv', () => {
       DATABASE_URL: 'postgres://iwapp:iwapp@localhost:5433/iwapp',
       JWT_SECRET: 'insecure-local-development-jwt-secret-not-for-prod',
       AUTH_TEST_MODE: false,
+      TRUST_PROXY_HOPS: 0,
     });
   });
 
@@ -34,6 +35,7 @@ describe('loadEnv', () => {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgres://u:p@db.internal/iwapp',
     JWT_SECRET: 'x'.repeat(32),
+    GOOGLE_CLIENT_ID: '123-abc.apps.googleusercontent.com',
   };
 
   it('accepts a complete production environment', () => {

@@ -1,5 +1,6 @@
 import { createDb, type Db } from '@iwapp/db';
-import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, { LogController } from 'fastify';
 import {
   serializerCompiler,
   validatorCompiler,
@@ -9,9 +10,12 @@ import type { Env } from './config/env.ts';
 import { API_BASE_PATH } from '@iwapp/shared';
 import {
   authRoutes,
+  createGoogleVerifier,
+  googleRoutes,
   registerAuthentication,
   secretKey,
   testIdpRoutes,
+  type GoogleVerifier,
 } from './modules/auth/index.ts';
 import { healthRoutes } from './modules/health/index.ts';
 import { registerDocs } from './plugins/docs.ts';
@@ -26,16 +30,28 @@ import { registerRequestTelemetry } from './telemetry/request-hooks.ts';
  * sends fake HTTP requests straight into Fastify, so there are no ports and no network.
  * server.ts calls this and then `listen()`.
  */
-export async function buildApp(env: Env) {
+/** Test seams: replace outside services that tests can't reach (Google's key server). */
+export interface AppOverrides {
+  verifyGoogleToken?: GoogleVerifier;
+}
+
+export async function buildApp(env: Env, overrides: AppOverrides = {}) {
   const app = Fastify({
     // Pino, with PII redaction (telemetry/logger.ts). Tests are silent unless LOG_LEVEL says otherwise.
     logger: loggerOptions(
       env.NODE_ENV === 'test' && env.LOG_LEVEL === 'info' ? 'silent' : env.LOG_LEVEL,
     ),
     genReqId: requestIdFrom,
-    requestIdLogLabel: 'request_id',
-    // We write one line per request ourselves (telemetry/request-hooks.ts).
-    disableRequestLogging: true,
+    // Log label `request_id` (spec §9). No built-in per-request lines: we write one line per
+    // request ourselves (telemetry/request-hooks.ts).
+    logController: new LogController({
+      requestIdLogLabel: 'request_id',
+      disableRequestLogging: true,
+    }),
+    // Behind Cloudflare and Cloud Run the TCP peer is a proxy. Trust exactly the N nearest hops
+    // (TRUST_PROXY_HOPS), so request.ip is the real client and can't be spoofed by a caller
+    // adding their own X-Forwarded-For entries further out.
+    trustProxy: (_address, hop) => hop < env.TRUST_PROXY_HOPS,
   }).withTypeProvider<ZodTypeProvider>();
 
   // Zod does validation (requests) and serialization (responses). A response field that isn't
@@ -66,8 +82,24 @@ export async function buildApp(env: Env) {
   const key = secretKey(env.JWT_SECRET);
   await registerAuthentication(app, key);
 
+  // Rate limits (spec §6): 300 requests a minute per signed-in user (per IP when anonymous).
+  // Registered AFTER authentication so the key can use request.actor. Sign-in routes set a
+  // stricter per-IP limit in their own config. Counters live in this instance's memory, so with
+  // up to 3 Cloud Run instances the effective limit is up to 3× higher: fine at our scale.
+  await app.register(rateLimit, {
+    max: 300,
+    timeWindow: '1 minute',
+    keyGenerator: (request) => request.actor?.userId ?? request.ip,
+  });
+
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: API_BASE_PATH, key });
+  const verifyGoogleToken =
+    overrides.verifyGoogleToken ??
+    (env.GOOGLE_CLIENT_ID ? createGoogleVerifier(env.GOOGLE_CLIENT_ID) : undefined);
+  if (verifyGoogleToken) {
+    await app.register(googleRoutes, { prefix: API_BASE_PATH, key, verifyGoogleToken });
+  }
   if (env.AUTH_TEST_MODE) {
     // Never in production: loadEnv() refuses to start with AUTH_TEST_MODE there.
     app.log.warn('AUTH_TEST_MODE is on: POST /api/v1/auth/test-login signs anyone in by email');

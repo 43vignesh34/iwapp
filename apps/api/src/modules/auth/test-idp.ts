@@ -19,7 +19,7 @@ export const testIdpRoutes: FastifyPluginCallbackZod<{ key: Uint8Array }> = (
   app.post(
     '/auth/test-login',
     {
-      config: { public: true, csrf: false },
+      config: { public: true, csrf: false, rateLimit: false }, // tests sign in a lot
       schema: { tags: ['auth'], body: TestLoginBodySchema, response: { 204: z.null() } },
     },
     async (request, reply) => {

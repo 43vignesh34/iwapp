@@ -8,6 +8,23 @@ export async function findUserByEmail(db: DbOrTx, email: string) {
   return row;
 }
 
+export async function findUserBySub(db: DbOrTx, googleSub: string) {
+  const [row] = await db.select().from(appUser).where(eq(appUser.googleSub, googleSub)).limit(1);
+  return row;
+}
+
+export async function linkGoogleSub(db: DbOrTx, userId: string, googleSub: string) {
+  await db
+    .update(appUser)
+    .set({
+      googleSub,
+      updatedAt: sql`now()`,
+      updatedBy: userId,
+      version: sql`${appUser.version} + 1`,
+    })
+    .where(eq(appUser.id, userId));
+}
+
 export async function markSignedIn(db: DbOrTx, userId: string, activate: boolean) {
   await db
     .update(appUser)
