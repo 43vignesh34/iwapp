@@ -2,6 +2,7 @@ import { MeResponseSchema, SESSION_COOKIES } from '@iwapp/shared';
 import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { AppError } from '../../errors.ts';
+import { capabilitiesFor } from '../policy/index.ts';
 import { clearSessionCookies, setSessionCookies } from './cookies.ts';
 import { refreshSession, signOut } from './service.ts';
 
@@ -53,7 +54,7 @@ export const authRoutes: FastifyPluginCallbackZod<AuthRouteOptions> = (app, opti
     return {
       user: { id: actor.userId, email: actor.email, isAdmin: actor.isAdmin },
       person: { id: actor.personId, displayName: actor.displayName },
-      capabilities: [], // filled in by the policy module (S6)
+      capabilities: capabilitiesFor(actor),
     };
   });
 

@@ -18,6 +18,8 @@ import {
   type GoogleVerifier,
 } from './modules/auth/index.ts';
 import { healthRoutes } from './modules/health/index.ts';
+import { usersRoutes } from './modules/users/index.ts';
+import { registerActorScope } from './plugins/actor-scope.ts';
 import { registerDocs } from './plugins/docs.ts';
 import { registerProblemHandlers } from './plugins/problem.ts';
 import { requestIdFrom } from './plugins/request-id.ts';
@@ -81,6 +83,7 @@ export async function buildApp(env: Env, overrides: AppOverrides = {}) {
   // Authentication, deny-by-default and CSRF for everything under /api/v1.
   const key = secretKey(env.JWT_SECRET);
   await registerAuthentication(app, key);
+  registerActorScope(app); // leader scope, once per request, for authorize()
 
   // Rate limits (spec §6): 300 requests a minute per signed-in user (per IP when anonymous).
   // Registered AFTER authentication so the key can use request.actor. Sign-in routes set a
@@ -94,6 +97,7 @@ export async function buildApp(env: Env, overrides: AppOverrides = {}) {
 
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: API_BASE_PATH, key });
+  await app.register(usersRoutes, { prefix: API_BASE_PATH });
   const verifyGoogleToken =
     overrides.verifyGoogleToken ??
     (env.GOOGLE_CLIENT_ID ? createGoogleVerifier(env.GOOGLE_CLIENT_ID) : undefined);

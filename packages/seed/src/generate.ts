@@ -125,16 +125,20 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
   };
 
   const dwarka = bvs[0];
+  const udupi = bvs[9]; // first BV of Sector 2
   const firstCircle = circles[0];
-  const firstSector = sectors[0];
-  if (!dwarka || !firstCircle || !firstSector) throw new Error('hierarchy generation failed');
+  if (!dwarka || !udupi || !firstCircle) throw new Error('hierarchy generation failed');
 
   // Test users: member and BV leader in Dwarka (Circle 1.1); circle leader leads Circle 1.1.
   join(testPeople.member, dwarka, 'member');
   join(testPeople.bvLeader, dwarka, 'member');
   join(testPeople.bvLeader, dwarka, 'leader');
   join(testPeople.circleLeader, firstCircle, 'leader');
+  join(testPeople.otherLeader, udupi, 'member');
+  join(testPeople.otherLeader, udupi, 'leader');
   membersOf.get(dwarka.id)?.push(testPeople.member, testPeople.bvLeader);
+  membersOf.get(udupi.id)?.push(testPeople.otherLeader);
+  const ledByTestUser = new Set([dwarka.id, udupi.id]);
 
   for (const p of people.slice(Object.keys(TEST_USERS).length)) {
     if (!faker.datatype.boolean(0.85)) continue;
@@ -151,8 +155,8 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
       (p) => p.status === 'active' && !isTestPerson(p),
     );
     const [first, second] = candidates;
-    if (bv.id !== dwarka.id && first) join(first, bv, 'leader');
-    const coLeader = bv.id === dwarka.id ? first : second;
+    if (!ledByTestUser.has(bv.id) && first) join(first, bv, 'leader');
+    const coLeader = ledByTestUser.has(bv.id) ? first : second;
     if (coLeader && faker.datatype.boolean(0.5)) join(coLeader, bv, 'co_leader');
   }
   const activeUnder = (unit: SeedOrgUnit) =>

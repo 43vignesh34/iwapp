@@ -55,5 +55,7 @@ export const TEST_USERS = {
   admin: { email: 'admin@iwapp.test', name: 'Test Admin' },
   circleLeader: { email: 'circle-leader@iwapp.test', name: 'Test Circle Leader' },
   bvLeader: { email: 'leader@iwapp.test', name: 'Test BV Leader' },
+  // Leads a BV in Sector 2: the "leader OUT of scope" persona for Dwarka's members.
+  otherLeader: { email: 'other-leader@iwapp.test', name: 'Test Other Leader' },
   member: { email: 'member@iwapp.test', name: 'Test Member' },
 } as const;

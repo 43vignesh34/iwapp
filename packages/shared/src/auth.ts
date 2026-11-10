@@ -8,6 +8,19 @@ export const SESSION_COOKIES = {
 } as const;
 export const CSRF_HEADER = 'x-csrf-token';
 
+/**
+ * What the signed-in user may do, as far as the UI is concerned: the web app shows a menu item
+ * or button only if its capability is listed. The API still checks every request itself.
+ */
+export const CapabilitySchema = z.enum([
+  'profile.view', // their own profile (everyone signed in)
+  'members.view', // the member list (leaders, within scope; admins)
+  'members.create',
+  'users.manage', // invite and disable users (admins)
+  'audit.view', // the audit log (admins)
+]);
+export type Capability = z.infer<typeof CapabilitySchema>;
+
 /** GET /api/v1/me: who is signed in and what they may do. The web app builds its menus from
  *  `capabilities`; the API still checks every request on its own (spec §7). */
 export const MeResponseSchema = z.object({
@@ -20,7 +33,7 @@ export const MeResponseSchema = z.object({
     id: z.uuid(),
     displayName: z.string(),
   }),
-  capabilities: z.array(z.string()),
+  capabilities: z.array(CapabilitySchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 

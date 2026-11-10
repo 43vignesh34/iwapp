@@ -15,6 +15,9 @@ export interface Actor {
   isAdmin: boolean;
   displayName: string;
   familyId: string;
+  /** Units this person leads plus all below them. Filled in per request by the scope hook
+   *  (plugins/actor-scope.ts); empty for members who lead nothing. */
+  scopeUnitIds: ReadonlySet<string>;
 }
 
 /** Everything the HTTP layer needs to set the session cookies. */
@@ -151,5 +154,5 @@ export async function signOut(db: Db, userId: string): Promise<void> {
 
 export async function findActor(db: Db, userId: string, familyId: string): Promise<Actor | null> {
   const row = await repo.findActiveActor(db, userId, familyId);
-  return row ? { ...row, familyId } : null;
+  return row ? { ...row, familyId, scopeUnitIds: new Set<string>() } : null;
 }
