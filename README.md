@@ -18,7 +18,8 @@ corepack enable pnpm   # once per machine; installs the pnpm version pinned in p
 pnpm install
 cp .env.example .env   # optional: the defaults work locally
 pnpm seed --size=small # 3 sectors, 9 circles, 27 BVs, 300 people, 4 test users
-pnpm dev               # Postgres + Grafana in Docker, then the API with reload on save
+pnpm dev               # Postgres + Grafana in Docker, migrations, then the API and the web app
+# open http://localhost:5173 and sign in with a test account (development only)
 ```
 
 ## Commands
@@ -37,8 +38,6 @@ pnpm dev               # Postgres + Grafana in Docker, then the API with reload 
 | `pnpm typecheck`   | `tsc --noEmit` in every workspace                        |
 | `pnpm format`      | Rewrite files with Prettier (`format:check` only checks) |
 
-Coming in later M0 tasks: `pnpm e2e`.
-
 ## Local URLs
 
 | URL                                           | What                           |
@@ -51,12 +50,12 @@ Coming in later M0 tasks: `pnpm e2e`.
 ## Layout
 
 ```
-apps/web         React web app                    (T9)
-apps/api         Fastify API                      (T2)
+apps/web         React web app (Vite, Mantine, TanStack Router + Query)
+apps/api         Fastify API: src/modules/<domain>/{routes,service,repo}.ts
 packages/config  shared tsconfig, ESLint, Prettier presets
 packages/shared  code shared by api and web
-packages/seed    synthetic data generator         (T5)
-db/              Drizzle schema and migrations    (T4)
-e2e/             Playwright tests                 (T9)
+packages/seed    deterministic synthetic data generator
+db/              Drizzle schema and SQL migrations
+e2e/             Playwright end-to-end tests
 docs/            PRD, ADRs, learning log, runbooks
 ```

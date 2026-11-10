@@ -118,10 +118,9 @@ pnpm test:int                # integration tests (Testcontainers; Docker must be
 pnpm db:migrate              # apply Drizzle migrations (DATABASE_URL, default: local Compose DB)
 pnpm db:generate             # write a new SQL migration from db/src/schema changes; READ IT
 pnpm seed --size=small       # synthetic congregation (--seed=108, --reset, --allow-remote for staging)
+pnpm e2e                     # Playwright: own DB (iwapp_e2e), prod web build, desktop + 360 px, axe
 pnpm format                  # Prettier (format:check in CI)
 pnpm build                   # build every workspace (Turborepo)
-# Coming later in M0:
-pnpm e2e                     # Playwright against the local stack            T9
 ```
 
 ## Safety rails

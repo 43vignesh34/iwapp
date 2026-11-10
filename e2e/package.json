@@ -1,0 +1,24 @@
+{
+  "name": "@iwapp/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare-db": "node scripts/prepare-db.ts",
+    "e2e": "node scripts/prepare-db.ts && playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@iwapp/config": "workspace:*",
+    "@iwapp/db": "workspace:*",
+    "@iwapp/seed": "workspace:*",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "~24.19.2",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.14.0",
+    "pg": "^8.23.1",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,5 +1,6 @@
 # CI: runs on every pull request and on every push to main.
-# Later tasks add jobs here: e2e (T9).
+# Jobs: checks (format, lint, typecheck, unit, build), integration (Testcontainers),
+# e2e (Playwright on the Compose Postgres), and a secret scan.
 name: CI
 
 on:
@@ -68,6 +69,35 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Testcontainers starts postgres:17 through the runner's Docker (preinstalled on ubuntu-latest).
       - run: pnpm test:int
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The same Postgres 17 as local development; e2e uses its own database (iwapp_e2e).
+      - run: docker compose up -d --wait postgres
+      - run: pnpm --filter @iwapp/e2e exec playwright install --with-deps chromium
+      # Builds the packages, prepares the database, starts API + web, runs the browser tests.
+      - run: pnpm e2e
+      - name: Keep the Playwright report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
 
   secrets:
     name: Secret scan
