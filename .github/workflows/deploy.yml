@@ -1,0 +1,117 @@
+# Deploy to STAGING on every merge to main (spec §11). Production, with a manual approval,
+# arrives in M4.
+#
+# Nothing here works until you've followed docs/deploy/staging.md. Until the `staging`
+# environment has its variables, the job is skipped (see `if:` below), so merges stay green.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button, for redeploying without a new commit
+
+permissions:
+  contents: read
+  id-token: write # lets GitHub mint a short-lived OIDC token for Workload Identity Federation
+
+# Never run two deploys at once, and never cancel one halfway through.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: Deploy to staging
+    if: vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    environment: staging # holds the variables and secrets below
+    timeout-minutes: 30
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+      REGION: ${{ vars.GCP_REGION }}
+      # Tagged with the commit SHA: every running revision maps to exactly one commit.
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/iwapp/api:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Workload Identity Federation: GitHub proves "I am a workflow in 43vignesh34/iwapp" with
+      # a short-lived token, and Google lets it act as the deployer service account. There is
+      # no long-lived key anywhere to leak (spec §6).
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Build and push the API image
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -f apps/api/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      # Migrations run BEFORE the new code takes traffic. Because they're expand-only
+      # (CLAUDE.md), the old revision keeps working against the new schema meanwhile.
+      - name: Migrate the staging database
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_MIGRATION_DATABASE_URL }}
+        run: pnpm db:migrate
+
+      - name: Deploy the API to Cloud Run
+        run: |
+          # Env vars are joined with "@" (gcloud's ^@^ syntax) because some values contain commas.
+          ENV="NODE_ENV=production@LOG_LEVEL=info@TRUST_PROXY_HOPS=2"
+          ENV="$ENV@GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}"
+          SECRETS="DATABASE_URL=iwapp-stg-database-url:latest,JWT_SECRET=iwapp-stg-jwt-secret:latest"
+          if [ -n "${{ vars.GRAFANA_OTLP_ENDPOINT }}" ]; then
+            # Telemetry to Grafana Cloud (optional, docs/deploy/staging.md step 9).
+            ENV="$ENV@OTEL_SERVICE_NAME=iwapp-api"
+            ENV="$ENV@OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging"
+            ENV="$ENV@OTEL_NODE_ENABLED_INSTRUMENTATIONS=http,pg,pino"
+            ENV="$ENV@OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.GRAFANA_OTLP_ENDPOINT }}"
+            ENV="$ENV@OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf@OTEL_METRICS_EXPORTER=none"
+            SECRETS="$SECRETS,OTEL_EXPORTER_OTLP_HEADERS=iwapp-stg-otlp-headers:latest"
+          else
+            ENV="$ENV@OTEL_TRACES_EXPORTER=none@OTEL_LOGS_EXPORTER=none@OTEL_METRICS_EXPORTER=none"
+          fi
+          gcloud run deploy iwapp-api-stg \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --service-account "iwapp-api-runtime@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com" \
+            --allow-unauthenticated \
+            --cpu 1 --memory 512Mi --min-instances 0 --max-instances 3 \
+            --set-env-vars "^@^$ENV" \
+            --set-secrets "$SECRETS" \
+            --quiet
+
+      - name: Build the web app
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        run: pnpm exec turbo run build --filter=@iwapp/web --output-logs=errors-only
+
+      - name: Deploy the web app and its /api proxy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web # so wrangler finds functions/ next to dist/
+          command: pages deploy dist --project-name=${{ vars.CF_PAGES_PROJECT }} --branch=main
+
+      # Read-only checks against the live staging site. Staging runs NODE_ENV=production, so the
+      # test sign-in doesn't exist there; we check the page, the proxy and the database instead.
+      - name: Smoke test staging
+        env:
+          SITE: ${{ vars.STAGING_URL }}
+        run: |
+          set -euo pipefail
+          API=$(gcloud run services describe iwapp-api-stg --region "$REGION" --format 'value(status.url)')
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "$API/readyz"; echo
+          curl -fsS -o /dev/null --retry 5 --retry-delay 5 "$SITE/sign-in"
+          status=$(curl -s -o /tmp/me.json -w '%{http_code}' "$SITE/api/v1/me")
+          test "$status" = 401 && grep -q '"code":"UNAUTHENTICATED"' /tmp/me.json
+          echo "Staging is up: page served, /api proxied to Cloud Run, database ready."

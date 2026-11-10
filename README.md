@@ -6,6 +6,7 @@ The congregation management app for ISKCON Whitefield: members, the Sector → C
 - **How we work:** [CLAUDE.md](CLAUDE.md)
 - **Decisions:** [docs/adr/](docs/adr/)
 - **Concepts, with exercises:** [docs/learning-log.md](docs/learning-log.md)
+- **Deploying to staging:** [docs/deploy/staging.md](docs/deploy/staging.md)
 
 > Only synthetic data ever lives in this repo, in local, CI or staging. Never commit real member data, `.env` files or secrets.
 
