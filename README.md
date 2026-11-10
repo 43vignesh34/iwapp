@@ -17,6 +17,7 @@ You need **Node 24** and **Docker Desktop** (running).
 corepack enable pnpm   # once per machine; installs the pnpm version pinned in package.json
 pnpm install
 cp .env.example .env   # optional: the defaults work locally
+pnpm seed --size=small # 3 sectors, 9 circles, 27 BVs, 300 people, 4 test users
 pnpm dev               # Postgres + Grafana in Docker, then the API with reload on save
 ```
 
@@ -36,7 +37,7 @@ pnpm dev               # Postgres + Grafana in Docker, then the API with reload 
 | `pnpm typecheck`   | `tsc --noEmit` in every workspace                        |
 | `pnpm format`      | Rewrite files with Prettier (`format:check` only checks) |
 
-Coming in later M0 tasks: `pnpm seed` and `pnpm e2e`.
+Coming in later M0 tasks: `pnpm e2e`.
 
 ## Local URLs
 

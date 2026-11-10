@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @iwapp/db migrate",
     "db:generate": "pnpm --filter @iwapp/db generate",
-    "test:int": "turbo run test:int"
+    "test:int": "turbo run test:int",
+    "seed": "turbo run build --filter=@iwapp/seed^... --output-logs=errors-only && pnpm --filter @iwapp/seed seed"
   },
   "prettier": "@iwapp/config/prettier",
   "devDependencies": {

@@ -218,6 +218,9 @@ importers:
       '@iwapp/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@iwapp/seed':
+        specifier: workspace:*
+        version: link:../../packages/seed
       '@opentelemetry/context-async-hooks':
         specifier: ^3.1.0
         version: 3.1.0(@opentelemetry/api@1.10.0)
@@ -301,6 +304,34 @@ importers:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
+
+  packages/seed:
+    dependencies:
+      '@faker-js/faker':
+        specifier: 10.6.0
+        version: 10.6.0
+      '@iwapp/db':
+        specifier: workspace:*
+        version: link:../../db
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
+    devDependencies:
+      '@iwapp/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ~24.19.2
+        version: 24.19.2
+      eslint:
+        specifier: ^10.14.0
+        version: 10.14.0(supports-color@7.2.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/shared:
     devDependencies:
@@ -830,6 +861,10 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@faker-js/faker@10.6.0':
+    resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
+    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@fastify/accept-negotiator@2.1.2':
     resolution: {integrity: sha512-LV7MZqTwXTEt3GxBT6BU8ACztWnv++hSkMEsP3usIHiI0tA4F5EO4THhDCOr5J/ginM9DCnLCmZ6u3JLA9x8Iw==}
@@ -3569,6 +3604,8 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@faker-js/faker@10.6.0': {}
 
   '@fastify/accept-negotiator@2.1.2': {}
 
