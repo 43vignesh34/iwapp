@@ -20,7 +20,7 @@
     "db:generate": "pnpm --filter @iwapp/db generate",
     "test:int": "turbo run test:int",
     "seed": "turbo run build --filter=@iwapp/seed^... --output-logs=errors-only && pnpm --filter @iwapp/seed seed",
-    "e2e": "turbo run build --filter=@iwapp/e2e^... --output-logs=errors-only && pnpm --filter @iwapp/e2e e2e"
+    "e2e": "turbo run build --filter=@iwapp/e2e^... --filter=@iwapp/api^... --filter=@iwapp/web^... --output-logs=errors-only && pnpm --filter @iwapp/e2e e2e"
   },
   "prettier": "@iwapp/config/prettier",
   "devDependencies": {
