@@ -16,6 +16,9 @@ export const EnvSchema = z.object({
 
   // 127.0.0.1 keeps the API off your network locally; containers set HOST=0.0.0.0.
   HOST: z.string().min(1).default('127.0.0.1'),
+
+  // Pino levels. 'silent' turns logging off (tests use it).
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

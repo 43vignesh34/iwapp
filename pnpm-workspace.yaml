@@ -3,3 +3,7 @@ packages:
   - packages/*
   - db
   - e2e
+# pnpm runs a dependency's install script only if it's listed here as true (supply-chain safety).
+# protobufjs (via OpenTelemetry) only runs a version check on install; it works without it.
+allowBuilds:
+  protobufjs: false

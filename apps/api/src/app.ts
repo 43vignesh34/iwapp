@@ -10,6 +10,8 @@ import { registerDocs } from './plugins/docs.ts';
 import { registerProblemHandlers } from './plugins/problem.ts';
 import { requestIdFrom } from './plugins/request-id.ts';
 import { registerSecurity } from './plugins/security.ts';
+import { loggerOptions } from './telemetry/logger.ts';
+import { registerRequestTelemetry } from './telemetry/request-hooks.ts';
 
 /**
  * Builds the app without starting a server. Tests call this and use `app.inject()`, which
@@ -18,9 +20,14 @@ import { registerSecurity } from './plugins/security.ts';
  */
 export async function buildApp(env: Env) {
   const app = Fastify({
-    // T3 replaces this with Pino plus PII redaction and trace IDs.
-    logger: env.NODE_ENV !== 'test',
+    // Pino, with PII redaction (telemetry/logger.ts). Tests are silent unless LOG_LEVEL says otherwise.
+    logger: loggerOptions(
+      env.NODE_ENV === 'test' && env.LOG_LEVEL === 'info' ? 'silent' : env.LOG_LEVEL,
+    ),
     genReqId: requestIdFrom,
+    requestIdLogLabel: 'request_id',
+    // We write one line per request ourselves (telemetry/request-hooks.ts).
+    disableRequestLogging: true,
   }).withTypeProvider<ZodTypeProvider>();
 
   // Zod does validation (requests) and serialization (responses). A response field that isn't
@@ -32,6 +39,7 @@ export async function buildApp(env: Env) {
     reply.header('x-request-id', request.id);
   });
 
+  registerRequestTelemetry(app);
   registerProblemHandlers(app);
   await registerSecurity(app);
   if (env.NODE_ENV !== 'production') {

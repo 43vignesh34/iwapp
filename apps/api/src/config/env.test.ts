@@ -3,7 +3,12 @@ import { loadEnv } from './env.ts';
 
 describe('loadEnv', () => {
   it('applies defaults when nothing is set', () => {
-    expect(loadEnv({})).toEqual({ NODE_ENV: 'development', PORT: 4000, HOST: '127.0.0.1' });
+    expect(loadEnv({})).toEqual({
+      NODE_ENV: 'development',
+      PORT: 4000,
+      HOST: '127.0.0.1',
+      LOG_LEVEL: 'info',
+    });
   });
 
   it('coerces PORT from a string to a number', () => {
@@ -16,6 +21,10 @@ describe('loadEnv', () => {
 
   it('rejects an unknown NODE_ENV', () => {
     expect(() => loadEnv({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+  });
+
+  it('rejects an unknown LOG_LEVEL', () => {
+    expect(() => loadEnv({ LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
   });
 
   it('accepts HOST=0.0.0.0, which containers need', () => {
