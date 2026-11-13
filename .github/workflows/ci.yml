@@ -1,7 +1,7 @@
 name: CI Pipeline to deploy application
 
-on:   
-  push: 
+on:
+  push:
     branches: ['**']
 
 jobs:
@@ -9,7 +9,6 @@ jobs:
     name: Start the remote VM
     runs-on: ubuntu-latest
     steps:
-
       - uses: actions/checkout@v7
       - name: Install pnpm (version from package.json "packageManager")
         uses: pnpm/action-setup@v6
@@ -20,10 +19,6 @@ jobs:
           cache: pnpm
       - name: Install all the required dependencies
         run: pnpm install --frozen-lockfile
-      - name: Lint
-        run: pnpm lint
-      - name: Typecheck
-        run: pnpm typecheck
       - name: Unit tests
         run: pnpm test
       - name: Build

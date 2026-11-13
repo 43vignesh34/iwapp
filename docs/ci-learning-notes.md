@@ -163,3 +163,151 @@ First push:   (nothing) ── A ── B ── C   "just before A" = ❌ doesn
 4. Checked locally: `git rev-list --max-parents=0 HEAD` → `5497a2b` (the root commit). `git rev-parse 5497a2b^` → the same error.
 
 **Lesson:** read the exit code and the log before assuming what a red check means. A red secret scan doesn't always mean a secret leaked.
+
+**The fix:** nothing to change in the workflow.
+
+- From now on, every push to `main` starts from a commit already on `main`, so the first new commit always has a parent and gitleaks scans normally.
+- Re-running the _old_ run would fail the same way, because it's the same range starting at the root commit.
+- That run scanned **0 bytes**, so the history was never actually scanned. To check it once, scan locally: `brew install gitleaks`, then `gitleaks git --redact -v .` (`--redact` hides any match in the output). If it finds something: **rotate the secret first**, then clean up the history.
+
+**Don't drop the scanner to avoid the error.** My new `ci.yml` has no secret-scan job, so the error can't happen. But that's like taking the batteries out of a smoke alarm after one false alarm: no real alarms either. The repo is public, so I should add the secret-scan job back as its own job.
+
+## 13. Which `ci.yml` does GitHub run?
+
+**GitHub runs the workflow file inside the commit being pushed, not the file on my laptop.**
+
+- The failed run (10 Nov) was for commit `1788c21` on `main`. The `ci.yml` _in that commit_ was the old one, with a `secrets:` job (gitleaks). Check with `git show 1788c21:.github/workflows/ci.yml`.
+- My new `ci.yml` is only in commit `04b3d23` ("New CI") on my local `pipelines` branch. GitHub has never seen it, so it has never run.
+
+```
+main:       … ── 1788c21 (old ci.yml, has gitleaks) ← the run that failed
+pipelines:          └── … ── 04b3d23 (my new ci.yml, no gitleaks) ← not run yet
+```
+
+Once `pipelines` is pushed, GitHub runs **my** `ci.yml` from that branch. After it's merged, `main` uses it too.
+
+## 14. Pushing a branch to make CI run
+
+My `on:` block runs CI on a push to **any** branch, so pushing the branch is all it takes.
+
+**My mistake:** I ran `git push origin main` and got "Everything up-to-date". That pushes my **local `main`**, which had no new commits. My commit was on **`pipelines`**.
+
+```
+main:       … ── 061cf4d              ← already on GitHub, nothing new
+pipelines:  … ── 061cf4d ── 04b3d23   ← my new commit, only on my laptop
+```
+
+**The right command:**
+
+```bash
+git push -u origin pipelines   # origin = my GitHub repo
+gh run watch                   # follow the CI run live (or the Actions tab on GitHub)
+```
+
+- `-u` links local `pipelines` to `origin/pipelines`, so next time a plain `git push` is enough.
+- **Team rule:** never commit straight to `main`. Changes reach `main` through a PR that I review and merge.
+- **Tip:** CI runs the same commands I can run locally. Run them first (e.g. `pnpm format:check`) to catch failures before pushing.
+
+## 15. Why `format:check` only reports and doesn't fix (and why formatting matters)
+
+**What I thought:** "As long as the code runs, formatting isn't needed. And what's the point of a check that finds a mistake but doesn't fix it?"
+
+**Why it doesn't fix:** same rule as section 9: **CI verifies, it never fixes.** A fix made by CI would live only on the VM, which gets deleted. The fix has to happen in a commit:
+
+```bash
+pnpm format                      # fixes every file locally
+git commit -am "style: format"
+```
+
+Better: turn on **format on save** in VS Code (Prettier extension), so files are already formatted before I commit. CI's check catches the times someone forgot.
+
+**Why formatting matters, even though the code runs either way.** It's for the people reading the code, not the computer:
+
+- **Clean reviews:** without one format, an editor re-indents a whole file and the PR shows 200 changed lines instead of the real 2.
+- **Fewer merge conflicts:** two people formatting differently = git conflicts on lines nobody really changed.
+- **No style arguments:** the tool decides, so reviews focus on logic.
+
+**Restaurant analogy:** the food tastes the same, but if every chef labels the jars differently, the next shift can't find anything.
+
+## 16. Fixing formatting automatically, before the commit
+
+**Decision (2026-11-12):** A + B together. CI's `format:check` goes back in as the final safety net.
+
+| Option                       | How                                                        | Verdict                                                                         |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| A. Format on save (VS Code)  | Shared `.vscode/settings.json` runs Prettier on every save | ✅ No new dependency, but VS Code only                                          |
+| B. Pre-commit hook           | Every `git commit` formats staged files first              | ✅ Any editor or terminal. Two dev dependencies, which need approval            |
+| C. CI fixes and commits back | CI runs `pnpm format` and pushes                           | ❌ Breaks "CI verifies, never fixes", needs `contents: write`, surprise commits |
+
+### Part A: format on save
+
+1. **`.gitignore`:** add `!.vscode/settings.json` under `.vscode/*`. `.vscode/*` hides personal editor files; a `!` line means "except this one". The settings file is shared, so the whole team gets format on save.
+2. **`.vscode/settings.json`:**
+
+   ```json
+   {
+     "editor.defaultFormatter": "esbenp.prettier-vscode",
+     "editor.formatOnSave": true
+   }
+   ```
+
+   - `defaultFormatter`: use Prettier, not VS Code's built-in formatter.
+   - `formatOnSave`: format every time I save.
+   - It uses the repo's Prettier rules (root `package.json` → `"prettier": "@iwapp/config/prettier"`), so the editor and CI agree.
+
+3. **`.vscode/extensions.json`:** `{ "recommendations": ["esbenp.prettier-vscode"] }`. VS Code then asks anyone opening the repo to install the Prettier extension, which the settings need.
+
+**Test:** add extra spaces in a `.ts` file and press Cmd+S. They should disappear.
+
+**Checking a `.gitignore` rule:** `git check-ignore -v <path>` prints the rule that applies to that path. For `.vscode/settings.json`, it showed line 26 (`!.vscode/settings.json`), the exception, so the file is **not** ignored.
+
+**What the two `.vscode` files do (line by line):**
+
+- `extensions.json` → `"recommendations": ["esbenp.prettier-vscode"]`: a list of extension ids to _suggest_ for this repo. The id is publisher (`esbenp`) + name (`prettier-vscode`). VS Code doesn't install it automatically; it shows "This workspace has extension recommendations."
+- `settings.json` → `"editor.defaultFormatter": "esbenp.prettier-vscode"`: _who_ formats (the Prettier extension, by the same id). `"editor.formatOnSave": true`: _when_ (every save).
+
+```
+extensions.json  →  makes sure the Prettier extension is installed
+settings.json    →  tells VS Code to use it, on every save
+Prettier         →  reads the repo's rules (@iwapp/config/prettier), the same rules CI checks
+```
+
+They live in the repo, not in my personal VS Code settings, so everyone who clones IWApp gets the same behaviour.
+
+**Install the extension:** Extensions (Cmd+Shift+X) → search `@recommended` → install **Prettier – Code formatter**.
+
+**Part A in my own words:**
+
+- When I press **Cmd+S**, VS Code applies Prettier formatting automatically.
+- The `.vscode` files live in the repo so that **every developer who clones it** gets format on save, without setting it up by hand. They only affect VS Code, not CI.
+- The Prettier **rules** (`@iwapp/config/prettier`) also live in the repo, so the same rules apply everywhere: my laptop, a teammate's, and CI.
+- **Tested it** by breaking the formatting in a file and saving. Prettier fixed it.
+
+### Part B: git hooks (my notes)
+
+- **A git hook** is a script that git runs **automatically** at a particular moment (e.g. just before a commit). [git docs: githooks](https://git-scm.com/docs/githooks)
+- **We need the `pre-commit` hook.** It runs _before_ git records the commit, so the files can still be fixed. (`prepare-commit-msg` and `commit-msg` deal with the message; `post-commit` runs after, which is too late.)
+- **When it fails** (exits with a non-zero status), **the commit is aborted.** So the hook can both _fix_ things and _block_ a bad commit.
+- **Hooks live in `.git/hooks/`** and run **on my laptop**, because `git commit` runs on my laptop. GitHub never runs them.
+- **They aren't stored on GitHub.** `git push` sends _commits_, not the `.git/` folder. A file in `.git/hooks/` never shows in `git status`, so it can never be part of a commit.
+- **So a teammate who clones the repo gets no hook,** and their commits won't be formatted.
+
+### Part B decision: build the hook ourselves, or add a dependency? (2026-11-13)
+
+**My decision:** build it (Option 1: git's `core.hooksPath` + a committed `.githooks/pre-commit` script). No new dependencies.
+
+**My reasoning:** a dependency has a cost, and it's harder to maintain and reverse.
+
+**Corrections to my reasoning:**
+
+- They'd be **dev dependencies**. They run only on developers' laptops and never ship to production, so there's no runtime memory or speed cost. The real costs are **supply-chain risk** (someone else's code running on every machine), **upkeep** (updates, breaking changes), and the **written justification** CLAUDE.md requires.
+- **Reversing is often easier with a dependency:** removing a package is one command. My own script is code I must maintain, and I own all its edge cases.
+
+**The honest trade-off:** no dependency risk ↔ I own the edge cases. Building it yourself is the cheaper choice only while the script stays small.
+
+**Four criteria for any "build it or add a dependency" decision:**
+
+1. **Dependency cost:** supply-chain risk, updates, justification.
+2. **Edge cases:** who handles the awkward situations, me or the tool?
+3. **Who maintains it:** my 10 lines, or a library used by thousands of projects?
+4. **Reversibility:** how hard is it to switch later?
