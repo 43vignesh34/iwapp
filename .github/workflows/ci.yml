@@ -29,3 +29,6 @@ jobs:
 
       - name: Integration Tests
         run: pnpm test:int
+
+      - name: E2E Tests
+        run: pnpm e2e
