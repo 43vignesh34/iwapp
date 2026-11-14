@@ -35,5 +35,8 @@ jobs:
         #d stands for detached mode, wait asks the pipeline to wait until this service is up and running, postgres
         #means only postgres service will run
 
+      - name: Install Playwright's Chromium (+ the Linux libraries it needs)
+        run: pnpm --filter @iwapp/e2e exec playwright install --with-deps chromium
+
       - name: E2E Tests
         run: pnpm e2e
