@@ -24,7 +24,9 @@ concurrency:
 jobs:
   staging:
     name: Deploy to staging
-    if: vars.GCP_PROJECT_ID != ''
+    # Repository variable: a job-level `if` runs BEFORE the job enters its environment, so it
+    # can't see the `staging` environment's variables. Set to 'false' to pause deploys.
+    if: vars.STAGING_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: staging # holds the variables and secrets below
     timeout-minutes: 30
