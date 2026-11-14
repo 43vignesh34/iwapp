@@ -7,7 +7,9 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - pipelines # TEMPORARY: remove once the M0 PR is merged to main
   workflow_dispatch: # "Run workflow" button, for redeploying without a new commit
 
 permissions:

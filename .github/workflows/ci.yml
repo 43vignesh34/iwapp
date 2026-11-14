@@ -30,7 +30,7 @@ jobs:
       - name: Integration Tests
         run: pnpm test:int
 
-      - name: Run docker compose
+      - name: Create postgres testcontainer by running docker compose
         run: docker compose up -d --wait postgres
         #d stands for detached mode, wait asks the pipeline to wait until this service is up and running, postgres
         #means only postgres service will run
