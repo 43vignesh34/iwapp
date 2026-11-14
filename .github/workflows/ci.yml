@@ -30,5 +30,8 @@ jobs:
       - name: Integration Tests
         run: pnpm test:int
 
+      - name: Run docker compose
+        run: docker compose up
+
       - name: E2E Tests
         run: pnpm e2e
