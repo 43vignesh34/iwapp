@@ -32,8 +32,8 @@ jobs:
 
       - name: Run docker compose
         run: docker compose up -d --wait postgres
-        //d stands for detached mode, wait asks the pipeline to wait until this service is up and running, postgres
-        //means only postgres service will run
+        #d stands for detached mode, wait asks the pipeline to wait until this service is up and running, postgres
+        #means only postgres service will run
 
       - name: E2E Tests
         run: pnpm e2e
