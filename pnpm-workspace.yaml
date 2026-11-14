@@ -13,3 +13,4 @@ allowBuilds:
   # we don't use (local Docker socket). Both fall back to plain JavaScript.
   cpu-features: false
   ssh2: false
+  workerd: true
