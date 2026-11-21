@@ -1,0 +1,32 @@
+{
+  "name": "@iwapp/seed",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic synthetic congregation data (spec §10, D7)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "node --env-file-if-exists=../../.env src/cli.ts"
+  },
+  "dependencies": {
+    "@faker-js/faker": "10.6.0",
+    "@iwapp/db": "workspace:*",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@iwapp/config": "workspace:*",
+    "@types/node": "~24.19.2",
+    "eslint": "^10.14.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

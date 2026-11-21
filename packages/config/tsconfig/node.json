@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "types": ["node"],
+
+    // Node 24 runs .ts files directly by stripping the types (ADR 0008). That only works for
+    // syntax that can be erased: no `enum`, no `namespace`, no constructor parameter properties.
+    "erasableSyntaxOnly": true,
+
+    // We import with real file extensions (`./app.ts`), so Node can find the file.
+    // When tsc builds for production, it rewrites them to `./app.js`.
+    "rewriteRelativeImportExtensions": true
+  }
+}

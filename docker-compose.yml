@@ -1,0 +1,39 @@
+# Local development stack. `pnpm dev` starts this, then the apps.
+# Ports are bound to 127.0.0.1 only, so nothing here is reachable from your network.
+name: iwapp
+
+services:
+  postgres:
+    # Debian-based, not Alpine: Alpine's C library (musl) sorts text differently from the
+    # glibc that Neon runs on, and we want local results to match staging and production.
+    image: postgres:17
+    environment:
+      # Local-only credentials for a throwaway database. Real ones live in Secret Manager.
+      POSTGRES_USER: iwapp
+      POSTGRES_PASSWORD: iwapp
+      POSTGRES_DB: iwapp
+    ports:
+      # 5433 on your machine → 5432 in the container (5432 is often taken by a local Postgres).
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U iwapp -d iwapp']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Grafana LGTM: Loki (logs), Grafana (UI), Tempo (traces), Mimir/Prometheus (metrics),
+  # plus an OpenTelemetry collector. One container standing in for Grafana Cloud.
+  lgtm:
+    image: grafana/otel-lgtm:0.39.0
+    ports:
+      - '127.0.0.1:3000:3000' # Grafana UI (login admin / admin)
+      - '127.0.0.1:4317:4317' # OTLP over gRPC
+      - '127.0.0.1:4318:4318' # OTLP over HTTP (the API sends here from T3)
+    volumes:
+      - lgtm:/data
+
+volumes:
+  pgdata:
+  lgtm:

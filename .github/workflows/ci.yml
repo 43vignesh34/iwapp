@@ -1,0 +1,42 @@
+name: CI Pipeline to deploy application
+
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  ci:
+    name: Start the remote VM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checks out codebase
+        uses: actions/checkout@v7
+
+      - name: Install pnpm (version from package.json "packageManager")
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node.js (version from .nvmrc)
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install all the required dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit Tests
+        run: pnpm test
+
+      - name: Integration Tests
+        run: pnpm test:int
+
+      - name: Create postgres testcontainer by running docker compose
+        run: docker compose up -d --wait postgres
+        #d stands for detached mode, wait asks the pipeline to wait until this service is up and running, postgres
+        #means only postgres service will run
+
+      - name: Install Playwright's Chromium (+ the Linux libraries it needs)
+        run: pnpm --filter @iwapp/e2e exec playwright install --with-deps chromium
+
+      - name: E2E Tests
+        run: pnpm e2e

@@ -1,0 +1,26 @@
+{
+  "name": "@iwapp/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@iwapp/config": "workspace:*",
+    "@types/node": "~24.19.2",
+    "eslint": "^10.14.0",
+    "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

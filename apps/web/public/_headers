@@ -1,0 +1,13 @@
+# Security headers for the web app's static files on Cloudflare Pages (spec §6).
+# API responses get theirs from Fastify + Helmet instead.
+#
+# CSP: only our own scripts, plus Google Identity Services for the sign-in button
+# (https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid#cross_origin_opener_policy).
+# Mantine injects style attributes, hence 'unsafe-inline' for styles only (never for scripts).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: https://*.googleusercontent.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
