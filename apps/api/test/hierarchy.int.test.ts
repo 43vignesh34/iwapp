@@ -1,43 +1,70 @@
-import { membership, orgUnit, person } from '@iwapp/db';
+import { leadershipPost, membership, orgUnit, person } from '@iwapp/db';
 import { generate, writeSeed } from '@iwapp/seed';
-import { sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { freshDatabase } from './database.ts';
 
 let database: Awaited<ReturnType<typeof freshDatabase>>;
+/** People who lead the units these tests create. */
+let leaderId: string;
+let successorId: string;
 beforeAll(async () => {
   database = await freshDatabase();
+  const rows = await database.db
+    .insert(person)
+    .values([
+      { legalName: 'Rule Test Leader', displayName: 'Leader', locality: 'Whitefield' },
+      { legalName: 'Rule Test Successor', displayName: 'Successor', locality: 'Hoodi' },
+    ])
+    .returning();
+  leaderId = rows[0]?.id ?? '';
+  successorId = rows[1]?.id ?? '';
 });
 afterAll(async () => {
   await database.close();
 });
 
-async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined> {
+/** The Postgres error behind a failed query: SQLSTATE code and, if any, the constraint name. */
+async function pgError(query: Promise<unknown>): Promise<{ code?: string; constraint?: string }> {
   try {
     await query;
-    return undefined;
+    return {};
   } catch (error) {
-    return (error as { cause?: { code?: string } }).cause?.code;
+    const cause = (error as { cause?: { code?: string; constraint?: string } }).cause;
+    return { code: cause?.code, constraint: cause?.constraint };
   }
 }
+async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined> {
+  return (await pgError(query)).code;
+}
+
+/** Creates a unit and appoints its leader in ONE transaction, as the leader rule requires. */
+async function createUnit(values: typeof orgUnit.$inferInsert) {
+  return database.db.transaction(async (tx) => {
+    const [unit] = await tx.insert(orgUnit).values(values).returning();
+    if (!unit) throw new Error('insert failed');
+    await tx
+      .insert(membership)
+      .values({ personId: leaderId, unitId: unit.id, unitKind: unit.kind, role: 'leader' });
+    return unit;
+  });
+}
+
+const activeLeaderOf = (unitId: string) =>
+  and(eq(membership.unitId, unitId), eq(membership.role, 'leader'), isNull(membership.endDate));
 
 describe('org_unit tree rules (enforced by Postgres, ADR 0013: circle → sector → BV)', () => {
   it('accepts circle → sector → BV and rejects the old sector → circle order', async () => {
-    const [circle] = await database.db
-      .insert(orgUnit)
-      .values({ kind: 'circle', name: 'Order test circle' })
-      .returning();
-    if (!circle) throw new Error('circle insert failed');
-
-    const [sector] = await database.db
-      .insert(orgUnit)
-      .values({ kind: 'sector', parentId: circle.id, parentKind: 'circle', name: 'Order sector' })
-      .returning();
-    if (!sector) throw new Error('sector insert failed');
-
+    const circle = await createUnit({ kind: 'circle', name: 'Order test circle' });
+    const sector = await createUnit({
+      kind: 'sector',
+      parentId: circle.id,
+      parentKind: 'circle',
+      name: 'Order sector',
+    });
     expect(
       await pgErrorCode(
-        database.db.insert(orgUnit).values({
+        createUnit({
           kind: 'bhakti_vriksha',
           parentId: sector.id,
           parentKind: 'sector',
@@ -65,11 +92,7 @@ describe('org_unit tree rules (enforced by Postgres, ADR 0013: circle → sector
   });
 
   it('rejects a BV directly under a circle, even if it lies about the parent kind', async () => {
-    const [circle] = await database.db
-      .insert(orgUnit)
-      .values({ kind: 'circle', name: 'Rule test circle' })
-      .returning();
-    if (!circle) throw new Error('insert failed');
+    const circle = await createUnit({ kind: 'circle', name: 'Rule test circle' });
 
     // Honest about the parent kind → the CHECK constraint rejects the combination.
     expect(
@@ -97,10 +120,98 @@ describe('org_unit tree rules (enforced by Postgres, ADR 0013: circle → sector
   });
 
   it('rejects two circles with the same name (NULLS NOT DISTINCT)', async () => {
-    await database.db.insert(orgUnit).values({ kind: 'circle', name: 'Twin' });
+    await createUnit({ kind: 'circle', name: 'Twin' });
     expect(
       await pgErrorCode(database.db.insert(orgUnit).values({ kind: 'circle', name: 'Twin' })),
     ).toBe('23505'); // unique_violation
+  });
+});
+
+describe('every level has a leader (deferred constraint triggers, ADR 0014)', () => {
+  it('rejects a unit created without a leader', async () => {
+    expect(
+      await pgError(database.db.insert(orgUnit).values({ kind: 'circle', name: 'Leaderless' })),
+    ).toEqual({ code: '23514', constraint: 'org_unit_requires_leader' });
+  });
+
+  it('rejects ending a leader with no successor', async () => {
+    const unit = await createUnit({ kind: 'circle', name: 'No successor circle' });
+    expect(
+      await pgError(
+        database.db
+          .update(membership)
+          .set({ endDate: sql`current_date` })
+          .where(activeLeaderOf(unit.id)),
+      ),
+    ).toEqual({ code: '23514', constraint: 'org_unit_requires_leader' });
+    expect(await pgError(database.db.delete(membership).where(activeLeaderOf(unit.id)))).toEqual({
+      code: '23514',
+      constraint: 'org_unit_requires_leader',
+    });
+  });
+
+  it('accepts a handover in one transaction, and keeps both leaders in the history', async () => {
+    const unit = await createUnit({ kind: 'circle', name: 'Handover circle' });
+    await database.db.transaction(async (tx) => {
+      await tx
+        .update(membership)
+        .set({ endDate: sql`current_date`, endReason: 'Handover' })
+        .where(activeLeaderOf(unit.id));
+      await tx
+        .insert(membership)
+        .values({ personId: successorId, unitId: unit.id, unitKind: 'circle', role: 'leader' });
+    });
+    const history = await database.db
+      .select({ personId: membership.personId, endDate: membership.endDate })
+      .from(membership)
+      .where(and(eq(membership.unitId, unit.id), eq(membership.role, 'leader')));
+    expect(history).toHaveLength(2);
+    expect(history.find((h) => h.endDate === null)?.personId).toBe(successorId);
+  });
+
+  it('lets an archived unit go without a leader, but not be reactivated without one', async () => {
+    const unit = await createUnit({ kind: 'circle', name: 'Archived circle' });
+    await database.db.transaction(async (tx) => {
+      await tx.update(orgUnit).set({ active: false }).where(eq(orgUnit.id, unit.id));
+      await tx
+        .update(membership)
+        .set({ endDate: sql`current_date` })
+        .where(activeLeaderOf(unit.id));
+    });
+    expect(
+      await pgError(
+        database.db.update(orgUnit).set({ active: true }).where(eq(orgUnit.id, unit.id)),
+      ),
+    ).toEqual({ code: '23514', constraint: 'org_unit_requires_leader' });
+  });
+
+  it('keeps a leadership post filled: no vacancy, but a handover is fine', async () => {
+    await database.db
+      .insert(leadershipPost)
+      .values({ personId: leaderId, post: 'program_director' });
+    const current = and(
+      eq(leadershipPost.post, 'program_director'),
+      isNull(leadershipPost.endDate),
+    );
+
+    expect(
+      await pgError(
+        database.db
+          .update(leadershipPost)
+          .set({ endDate: sql`current_date` })
+          .where(current),
+      ),
+    ).toEqual({ code: '23514', constraint: 'leadership_post_requires_holder' });
+
+    await database.db.transaction(async (tx) => {
+      await tx
+        .update(leadershipPost)
+        .set({ endDate: sql`current_date` })
+        .where(current);
+      await tx.insert(leadershipPost).values({ personId: successorId, post: 'program_director' });
+    });
+    const [holder] = await database.db.select().from(leadershipPost).where(current);
+    expect(holder?.personId).toBe(successorId);
   });
 });
 

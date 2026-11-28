@@ -36,6 +36,13 @@
       "when": 1795875144706,
       "tag": "0004_leadership_post",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795875468185,
+      "tag": "0005_leader_required",
+      "breakpoints": true
     }
   ]
 }
