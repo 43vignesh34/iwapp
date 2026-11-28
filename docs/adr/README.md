@@ -17,3 +17,4 @@ Each ADR records one decision: the context, what we decided and what follows fro
 | [0011](0011-authorization-design.md)    | Authorisation: pure policy, per-request scope, permission matrix | Accepted |
 | [0012](0012-members-api-conventions.md) | Members API conventions (pagination, If-Match, 403, phones)      | Accepted |
 | [0013](0013-hierarchy-leadership.md)    | Hierarchy: Circle → Sector → BV, and leadership posts            | Accepted |
+| [0014](0014-leader-required.md)         | Every level has a leader: deferred constraint triggers           | Accepted |

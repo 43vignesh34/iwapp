@@ -1,6 +1,6 @@
 import { appUser, leadershipPost, membership, orgUnit } from '@iwapp/db';
 import { TEST_USERS } from '@iwapp/seed';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, TransactionRollbackError } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { seededApp } from '../../../test/app.ts';
 import { scopeUnitIds } from './repo.ts';
@@ -97,24 +97,32 @@ describe('scopeUnitIds (recursive CTE over org_unit)', () => {
     await ctx.database.db.update(orgUnit).set({ active: true }).where(eq(orgUnit.name, 'Circle 3'));
   });
 
+  // Ending a leadership without a successor can't COMMIT (ADR 0014). These two tests only need
+  // to see the scope mid-transaction, so they roll back: the deferred check never runs, and the
+  // shared seeded data is left untouched.
   it('an ended leadership no longer counts', async () => {
     const leaderId = await personIdOf(TEST_USERS.otherLeader.email);
-    await ctx.database.db
-      .update(membership)
-      .set({ endDate: '2026-11-01' })
-      .where(and(eq(membership.personId, leaderId), eq(membership.role, 'leader')));
-    expect(await scopeUnitIds(ctx.database.db, leaderId)).toEqual([]);
-    await ctx.database.db
-      .update(membership)
-      .set({ endDate: null })
-      .where(and(eq(membership.personId, leaderId), eq(membership.role, 'leader')));
+    const attempt = ctx.database.db.transaction(async (tx) => {
+      await tx
+        .update(membership)
+        .set({ endDate: '2026-11-01' })
+        .where(and(eq(membership.personId, leaderId), eq(membership.role, 'leader')));
+      expect(await scopeUnitIds(tx, leaderId)).toEqual([]);
+      tx.rollback();
+    });
+    await expect(attempt).rejects.toBeInstanceOf(TransactionRollbackError);
   });
 
   it('an ended post no longer counts', async () => {
     const preacherId = await personIdOf(TEST_USERS.preacher.email);
-    const holding = eq(leadershipPost.personId, preacherId);
-    await ctx.database.db.update(leadershipPost).set({ endDate: '2026-11-01' }).where(holding);
-    expect(await scopeUnitIds(ctx.database.db, preacherId)).toEqual([]);
-    await ctx.database.db.update(leadershipPost).set({ endDate: null }).where(holding);
+    const attempt = ctx.database.db.transaction(async (tx) => {
+      await tx
+        .update(leadershipPost)
+        .set({ endDate: '2026-11-01' })
+        .where(eq(leadershipPost.personId, preacherId));
+      expect(await scopeUnitIds(tx, preacherId)).toEqual([]);
+      tx.rollback();
+    });
+    await expect(attempt).rejects.toBeInstanceOf(TransactionRollbackError);
   });
 });
