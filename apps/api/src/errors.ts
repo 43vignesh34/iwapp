@@ -3,29 +3,29 @@
  * handler (plugins/problem.ts) decides the HTTP status. That keeps services usable outside HTTP:
  * the seed, the CSV import (M4) and background jobs call the same code.
  */
-export type AppErrorKind =
-  | 'unauthenticated' // 401: who are you?
-  | 'forbidden' // 403: you may not
-  | 'not_found' // 404
-  | 'conflict' // 409: clashes with existing data
-  | 'precondition_required' // 428: If-Match missing
-  | 'precondition_failed' // 412: stale version (someone else saved first)
-  | 'invalid'; // 400: valid shape, but breaks a business rule
+
+export type Errors =
+  | 'bad_request'
+  | 'unauthenticated'
+  | 'forbidden'
+  | 'not_found'
+  | 'conflict'
+  | 'precondition_required'
+  | 'precondition_failed'
+  | 'invalid';
 
 export class AppError extends Error {
-  readonly kind: AppErrorKind;
-  /** Stable machine-readable code, e.g. 'NOT_INVITED'. Clients switch on this. */
+  readonly kind: Errors;
   readonly code: string;
-
-  constructor(kind: AppErrorKind, code: string, message: string) {
+  constructor(kind: Errors, code: string, message: string) {
     super(message);
-    this.name = 'AppError';
     this.kind = kind;
     this.code = code;
   }
 }
 
-export const STATUS_FOR_KIND: Record<AppErrorKind, number> = {
+export const STATUS_FOR_KIND: Record<Errors, number> = {
+  bad_request: 400,
   unauthenticated: 401,
   forbidden: 403,
   not_found: 404,
