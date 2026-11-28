@@ -14,8 +14,8 @@ const SHOW_TEST_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_TEST_SIGN_
 const TEST_ACCOUNTS = [
   { value: 'member@iwapp.test', label: 'Member (Dwarka BV)' },
   { value: 'leader@iwapp.test', label: 'BV leader (Dwarka)' },
-  { value: 'circle-leader@iwapp.test', label: 'Circle leader (Circle 1.1)' },
-  { value: 'other-leader@iwapp.test', label: 'BV leader (Udupi, Sector 2)' },
+  { value: 'circle-leader@iwapp.test', label: 'Circle leader (Circle 1)' },
+  { value: 'other-leader@iwapp.test', label: 'BV leader (Srirangam, Circle 2)' },
   { value: 'admin@iwapp.test', label: 'Admin' },
 ];
 

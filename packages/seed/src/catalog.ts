@@ -1,6 +1,6 @@
 /** Fixed lists the generator draws from (spec §10). */
 
-/** Bhakti Vrikshas are named after holy places: 27 = 3 sectors × 3 circles × 3 BVs. */
+/** Bhakti Vrikshas are named after holy places: 36 = 3 circles × 3 sectors × 4 BVs. */
 export const HOLY_PLACES = [
   'Dwarka',
   'Puri',
@@ -29,6 +29,15 @@ export const HOLY_PLACES = [
   'Nandagram',
   'Radhakund',
   'Navadvipa',
+  'Dakor',
+  'Ahobilam',
+  'Melkote',
+  'Kanchipuram',
+  'Kumbakonam',
+  'Mathura',
+  'Chitrakoot',
+  'Sri Kurmam',
+  'Simhachalam',
 ] as const;
 
 export const LOCALITIES = [
@@ -43,7 +52,7 @@ export const LOCALITIES = [
 
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
-/** How many people each size creates. The hierarchy is the same 3/9/27 for every size. */
+/** How many people each size creates. The hierarchy is the same 3/9/36 for every size. */
 export const SIZES = { small: 300, medium: 2_000, large: 10_000 } as const;
 export type SeedSize = keyof typeof SIZES;
 
@@ -55,7 +64,7 @@ export const TEST_USERS = {
   admin: { email: 'admin@iwapp.test', name: 'Test Admin' },
   circleLeader: { email: 'circle-leader@iwapp.test', name: 'Test Circle Leader' },
   bvLeader: { email: 'leader@iwapp.test', name: 'Test BV Leader' },
-  // Leads a BV in Sector 2: the "leader OUT of scope" persona for Dwarka's members.
+  // Leads Srirangam BV in Circle 2: the "leader OUT of scope" persona for Dwarka's members.
   otherLeader: { email: 'other-leader@iwapp.test', name: 'Test Other Leader' },
   member: { email: 'member@iwapp.test', name: 'Test Member' },
 } as const;

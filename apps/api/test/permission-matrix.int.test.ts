@@ -7,7 +7,7 @@
  *   anonymous         no session
  *   member            member@         a member of Dwarka BV; leads nothing
  *   leaderInScope     leader@         leads Dwarka BV, so Dwarka's members are in scope
- *   leaderOutOfScope  other-leader@   leads Udupi BV (Sector 2), so Dwarka is out of scope
+ *   leaderOutOfScope  other-leader@   leads Srirangam BV (Circle 2), so Dwarka is out of scope
  *   admin             admin@
  */
 import { appUser, person } from '@iwapp/db';
