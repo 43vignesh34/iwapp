@@ -23,13 +23,14 @@ async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined>
 }
 
 describe('migrations', () => {
-  it('create the M0 tables', async () => {
+  it('create the M0 tables, plus leadership_post (ADR 0013)', async () => {
     const rows = await database.db.execute<{ tablename: string }>(
       sql`select tablename from pg_tables where schemaname = 'public' order by tablename`,
     );
     expect(rows.rows.map((r) => r.tablename)).toEqual([
       'app_user',
       'audit_log',
+      'leadership_post',
       'membership',
       'org_unit',
       'person',

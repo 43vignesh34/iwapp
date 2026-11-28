@@ -67,4 +67,6 @@ export const TEST_USERS = {
   // Leads Srirangam BV in Circle 2: the "leader OUT of scope" persona for Dwarka's members.
   otherLeader: { email: 'other-leader@iwapp.test', name: 'Test Other Leader' },
   member: { email: 'member@iwapp.test', name: 'Test Member' },
+  // Holds the Supervising Preacher post (ADR 0013): a leader whose scope is the whole tree.
+  preacher: { email: 'preacher@iwapp.test', name: 'Test Supervising Preacher' },
 } as const;

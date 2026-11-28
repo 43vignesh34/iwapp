@@ -1,5 +1,5 @@
 import { Faker, en, en_IN } from '@faker-js/faker';
-import type { appUser, membership, orgUnit, person } from '@iwapp/db';
+import type { appUser, leadershipPost, membership, orgUnit, person } from '@iwapp/db';
 import { HOLY_PLACES, LOCALITIES, SIZES, TEST_USERS, WEEKDAYS, type SeedSize } from './catalog.ts';
 import { deterministicUuidv7 } from './ids.ts';
 
@@ -7,11 +7,13 @@ export type SeedPerson = typeof person.$inferInsert & { id: string };
 export type SeedOrgUnit = typeof orgUnit.$inferInsert & { id: string };
 export type SeedMembership = typeof membership.$inferInsert;
 export type SeedAppUser = typeof appUser.$inferInsert;
+export type SeedLeadershipPost = typeof leadershipPost.$inferInsert;
 
 export interface SeedData {
   orgUnits: SeedOrgUnit[];
   people: SeedPerson[];
   memberships: SeedMembership[];
+  leadershipPosts: SeedLeadershipPost[];
   appUsers: SeedAppUser[];
 }
 
@@ -179,7 +181,27 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
     join(leader, circle, 'leader');
   }
 
-  // 5. App users: only the test accounts. Real users are invited by an admin (T7).
+  // 5. Leadership posts above the tree (ADR 0013): the test account is the Supervising Preacher,
+  //    and a generated person is the Program Director.
+  const programDirector = faker.helpers.arrayElement(
+    people.filter((p) => p.status === 'active' && !isTestPerson(p)),
+  );
+  const leadershipPosts: SeedLeadershipPost[] = [
+    {
+      id: newId(),
+      personId: programDirector.id,
+      post: 'program_director',
+      startDate: date('2015-01-01', '2020-12-31'),
+    },
+    {
+      id: newId(),
+      personId: testPeople.preacher.id,
+      post: 'supervising_preacher',
+      startDate: date('2018-01-01', '2024-12-31'),
+    },
+  ];
+
+  // 6. App users: only the test accounts. Real users are invited by an admin (T7).
   const appUsers: SeedAppUser[] = Object.entries(TEST_USERS).map(([key, u]) => ({
     id: newId(),
     personId: testPeople[key as keyof typeof TEST_USERS].id,
@@ -188,5 +210,5 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
     status: 'active' as const,
   }));
 
-  return { orgUnits, people, memberships, appUsers };
+  return { orgUnits, people, memberships, leadershipPosts, appUsers };
 }

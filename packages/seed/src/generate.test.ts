@@ -40,6 +40,16 @@ describe('generate', () => {
     }
   });
 
+  it('fills each leadership post once; the test preacher is the Supervising Preacher', () => {
+    expect(small.leadershipPosts.map((p) => p.post).sort()).toEqual([
+      'program_director',
+      'supervising_preacher',
+    ]);
+    const preacher = small.people.find((p) => p.email === TEST_USERS.preacher.email);
+    const sp = small.leadershipPosts.find((p) => p.post === 'supervising_preacher');
+    expect(sp?.personId).toBe(preacher?.id);
+  });
+
   it('puts nobody in more than one BV as a member (Q3)', () => {
     const bvMembers = small.memberships
       .filter((m) => m.role === 'member' && m.unitKind === 'bhakti_vriksha')

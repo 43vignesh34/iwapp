@@ -1,4 +1,12 @@
-import { appUser, membership, orgUnit, person, userSession, type Db } from '@iwapp/db';
+import {
+  appUser,
+  leadershipPost,
+  membership,
+  orgUnit,
+  person,
+  userSession,
+  type Db,
+} from '@iwapp/db';
 import { sql } from 'drizzle-orm';
 import type { SeedData } from './generate.ts';
 
@@ -12,7 +20,7 @@ function chunks<T>(rows: T[]): T[][] {
 }
 
 export interface WriteOptions {
-  /** Delete existing people, units, memberships and users first. audit_log is append-only and kept. */
+  /** Delete existing people, units, memberships, leadership posts and users first. audit_log is append-only and kept. */
   reset?: boolean;
 }
 
@@ -27,6 +35,7 @@ export async function writeSeed(db: Db, data: SeedData, options: WriteOptions = 
       await tx.delete(userSession);
       await tx.delete(appUser);
       await tx.delete(membership);
+      await tx.delete(leadershipPost);
       await tx.delete(orgUnit); // one statement: Postgres checks the self-reference at the end
       await tx.delete(person);
     } else {
@@ -38,6 +47,7 @@ export async function writeSeed(db: Db, data: SeedData, options: WriteOptions = 
     for (const rows of chunks(data.people)) await tx.insert(person).values(rows);
     for (const rows of chunks(data.orgUnits)) await tx.insert(orgUnit).values(rows); // parents first
     for (const rows of chunks(data.memberships)) await tx.insert(membership).values(rows);
+    await tx.insert(leadershipPost).values(data.leadershipPosts);
     for (const rows of chunks(data.appUsers)) await tx.insert(appUser).values(rows);
   });
 }

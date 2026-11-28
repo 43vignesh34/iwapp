@@ -10,6 +10,10 @@ import { sql } from 'drizzle-orm';
  *   2. the recursive step: children of any unit already found. Postgres repeats step 2 until it
  *      finds nothing new. UNION (not UNION ALL) drops duplicates, so overlapping leaderships
  *      (say, a circle leader who also co-leads one of its BVs) can't produce repeats or loops.
+ *
+ * The Program Director and Supervising Preacher (leadership_post, ADR 0013) sit above the tree,
+ * so the anchor also takes every root unit (every circle) when the person holds an active post.
+ * The recursive step then fills in the rest, so they get the whole tree.
  */
 export async function scopeUnitIds(db: DbOrTx, personId: string): Promise<string[]> {
   const result = await db.execute<{ id: string }>(sql`
@@ -21,6 +25,15 @@ export async function scopeUnitIds(db: DbOrTx, personId: string): Promise<string
         AND m.role IN ('leader', 'co_leader')
         AND m.end_date IS NULL
         AND u.active
+      UNION
+      SELECT u.id
+      FROM org_unit u
+      WHERE u.parent_id IS NULL
+        AND u.active
+        AND EXISTS (
+          SELECT 1 FROM leadership_post p
+          WHERE p.person_id = ${personId} AND p.end_date IS NULL
+        )
       UNION
       SELECT child.id
       FROM org_unit child
