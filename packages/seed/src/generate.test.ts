@@ -13,9 +13,18 @@ describe('generate', () => {
     expect(generate({ size: 'small', seed: 109 }).people).not.toEqual(small.people);
   });
 
-  it('builds 3 sectors, 9 circles and 27 BVs', () => {
+  it('builds 3 circles, 9 sectors and 36 BVs (ADR 0013)', () => {
     const count = (kind: string) => small.orgUnits.filter((u) => u.kind === kind).length;
-    expect([count('sector'), count('circle'), count('bhakti_vriksha')]).toEqual([3, 9, 27]);
+    expect([count('circle'), count('sector'), count('bhakti_vriksha')]).toEqual([3, 9, 36]);
+  });
+
+  it('nests circle → sector → BV', () => {
+    const kindOf = new Map(small.orgUnits.map((u) => [u.id, u.kind]));
+    for (const u of small.orgUnits) {
+      const parentKind = u.parentId ? kindOf.get(u.parentId) : undefined;
+      const expected = { circle: undefined, sector: 'circle', bhakti_vriksha: 'sector' }[u.kind];
+      expect(parentKind, u.name).toBe(expected);
+    }
   });
 
   it('creates 300 people for size=small, including the test users', () => {
@@ -56,6 +65,6 @@ describe('generate', () => {
   it('scales the people count but not the hierarchy', () => {
     const large = generate({ size: 'large', seed: 108 });
     expect(large.people).toHaveLength(10_000);
-    expect(large.orgUnits).toHaveLength(39);
+    expect(large.orgUnits).toHaveLength(48);
   });
 });

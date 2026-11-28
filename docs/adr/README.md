@@ -16,3 +16,4 @@ Each ADR records one decision: the context, what we decided and what follows fro
 | [0010](0010-session-design.md)          | Session design: JWT plus per-request session check               | Accepted |
 | [0011](0011-authorization-design.md)    | Authorisation: pure policy, per-request scope, permission matrix | Accepted |
 | [0012](0012-members-api-conventions.md) | Members API conventions (pagination, If-Match, 403, phones)      | Accepted |
+| [0013](0013-hierarchy-leadership.md)    | Hierarchy: Circle → Sector → BV, and leadership posts            | Accepted |

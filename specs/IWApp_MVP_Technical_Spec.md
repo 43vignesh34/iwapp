@@ -1,6 +1,6 @@
 # IWApp MVP Technical Specification
 
-ISKCON Whitefield Congregation App · 2026-11-07 · Prepared for Suresh Balasubramanian · Status: Baseline for the MVP build (open questions Q1–Q6 still to be answered)  
+ISKCON Whitefield Congregation App · 2026-11-07, amended 2026-11-28 (hierarchy, ADR 0013) · Prepared for Suresh Balasubramanian · Status: Baseline for the MVP build (open questions Q1–Q6 still to be answered)  
 > The shared Claude doc is the master copy; this file is the snapshot Claude Code builds from.
 
 ## 1. Summary and decisions for approval
@@ -15,7 +15,7 @@ The build can start once these decisions are approved:
 | D2  | Sign-in                | Google sign-in only. An admin invites each user by email and links them to a member profile.                                                                        | Phone OTP in a later phase; the temple pays per SMS sent (rate to be quoted by the provider) |
 | D3  | Hosting                | Free tiers across providers, all in or near the Singapore region (section 8)                                                                                        | One Oracle Cloud Always Free VM running everything in Docker                                 |
 | D4  | Repository             | One monorepo `iwapp` (pnpm + Turborepo) with web, api and shared packages; private GitHub repo                                                                      | Separate repos per app                                                                       |
-| D5  | Who can see what       | Admins see everything. Leaders see their own unit and everything under it. Members see their own profile and family. Field-level visibility follows member consent. | Leaders see the whole directory                                                              |
+| D5  | Who can see what       | Admins see everything. Leaders see their own unit and everything under it. The Program Director and Supervising Preacher see the whole tree. Members see their own profile and family. Field-level visibility follows member consent. | Leaders see the whole directory                                                              |
 | D6  | Gita course engagement | Per-session attendance. Each participant's enrolment shows sessions attended, first and last attended, and status.                                                  | Total count entered manually                                                                 |
 | D7  | Test data              | A deterministic synthetic data generator for local, CI and staging. A CSV import for real data in milestone M4.                                                     | Hand-entered test data                                                                       |
 
@@ -32,6 +32,8 @@ The PRD's data model and MVP list are clear enough to build. Your answers on 7 N
 - **Gita course:** Per-session attendance. Facilitators mark each session, and the app works out the engagement level.
 
 - **Hosting:** The cheapest option across any providers.
+
+- **Hierarchy (28 Nov):** The tree is Circle → Sector → Bhakti Vriksha. Above it are two levels of leadership, Program Director and Supervising Preacher. They are posts held by people, not organisational units. Every level must always have a leader (ADR 0013).
 
 **Assumptions (correct any that are wrong)**
 
@@ -50,6 +52,12 @@ The PRD's data model and MVP list are clear enough to build. Your answers on 7 N
 - **A7.** Age is calculated from date of birth. Where only an approximate age is known, the birth year is stored.
 
 - **A8.** Leaders mostly use the app on their phones, so every screen is mobile-first.
+
+- **A9.** There is exactly one Program Director and one Supervising Preacher, and both cover the whole congregation.
+
+- **A10.** The Program Director and Supervising Preacher are leadership posts with whole-tree scope, not Admins. Admin stays a separate system role (`app_user.is_admin`).
+
+- **A11.** The organisation chart's shape (3 circles × 3 sectors × 4 BVs) is an example, not a limit. Any unit can have any number of children.
 
 **Open questions for review**
 
@@ -72,7 +80,7 @@ The MVP covers all nine items in PRD §5 through eight modules. Donations, the m
 | Module                    | What the MVP delivers                                                                                                                                                                                                                                                                                              | PRD           |
 |---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | Members                   | Create, view, edit and archive profiles. Fields: legal name, initiated name, gender, DOB or birth year, hometown, current locality, workplace, year first connected to Krishna consciousness, phone, email, WhatsApp, notes. Duplicate check by phone, email and fuzzy name before saving. One profile per person. | 2.1, 5.1, 5.6 |
-| Hierarchy                 | Sector → Circle → Bhakti Vriksha tree. Create, rename, move and archive units. Assign a leader and co-leaders at each level. Drill down from sector to members, and roll up counts.                                                                                                                                | 2.3, 5.3      |
+| Hierarchy                 | Two leadership posts, Program Director and Supervising Preacher, above a Circle → Sector → Bhakti Vriksha tree. Create, rename, move and archive units. Every unit and post must have exactly one active leader: a Circle-Servant (Cakra-Pati), a Sector-Servant (Upacakra-Pati) or a BV Servant-Leader. Co-leaders are optional. A unit is created together with its leader, and a leader is replaced by a handover, so no unit or post is ever left vacant. Drill down from circle to members, and roll up counts. | 2.3, 5.3      |
 | Groups and initiatives    | Groups typed as Service, Initiative, Yatra, Harinama or Course. Each group has an owner and optional co-owners. Members join with a role and a start date. Leaving sets an end date, so history and duration are kept.                                                                                             | 2.2, 5.2      |
 | Courses and attendance    | A course is a group with numbered sessions. Facilitators mark attendance per session on a phone-friendly grid. Each participant's enrolment shows sessions attended out of the total, first and last dates, and status (enrolled, active, completed, dropped). Participants can be searched by sessions attended.  | 5.8, 5.9      |
 | Spiritual progress        | Admin-configurable indicators, seeded with: daily chanting rounds, Bhakti Steps (Q1), BV tenure (derived) and the four regulative principles (optional). Each value is recorded with an as-of date, giving a history per member.                                                                                   | 2.3, 5.4      |
@@ -82,7 +90,7 @@ The MVP covers all nine items in PRD §5 through eight modules. Donations, the m
 
 **Key user journeys the tests must cover**
 
-1.  An admin builds the hierarchy, creates a BV and appoints its leader.
+1.  An admin builds the hierarchy and creates a BV together with its Servant-Leader. Trying to create a unit without a leader is rejected.
 
 2.  A leader signs in on a phone and sees only their BV's members. They update a member's chanting rounds.
 
@@ -93,6 +101,8 @@ The MVP covers all nine items in PRD §5 through eight modules. Donations, the m
 5.  A member signs in and corrects their own phone number. They see their family and memberships but no one else's contact details.
 
 6.  A member withdraws consent. Their optional fields are hidden from leaders, and the change is audit-logged.
+
+7.  An admin hands a sector over from one Sector-Servant to another in a single step. The sector is never without a leader, and its history shows both.
 
 ## 4. Logical architecture
 
@@ -142,21 +152,21 @@ Requests flow top to bottom. Google handles sign-in only, and every layer report
 
 | Question                                   | How                                                                                | Example                                                                                                        |
 |--------------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| Everyone under a sector or circle          | A recursive query over `org_unit` (three levels)                                   | All members under Sector 2, grouped by circle                                                                  |
+| Everyone under a circle or sector          | A recursive query over `org_unit` (three levels)                                   | All members under Circle 2, grouped by sector                                                                  |
 | A member's family                          | A join on `relationship` in both directions, plus a second hop for extended family | Spouse, parents, children and siblings on the profile                                                          |
 | Filters that combine several relationships | Joins with `EXISTS` and `NOT EXISTS`                                               | Gita Course 2026 participants with 8 or more sessions who are not yet in any Bhakti Vriksha (a follow-up list) |
 | Name, phone and email search               | `pg_trgm` and full-text search                                                     | “Radhika” also finds “Radika”                                                                                  |
-| A leader's scope                           | A recursive query, cached for each request                                         | Is this member under a unit this leader leads?                                                                 |
+| A leader's scope                           | A recursive query, cached for each request. The Program Director and Supervising Preacher get every unit. | Is this member under a unit this leader leads?                                                                 |
 
 At 10,000 members, each of these takes milliseconds with ordinary indexes.
 
-**Why one database (D1).** The MVP's relationship questions are shallow: a three-level hierarchy, family one or two hops away, and direct course enrolment. Most of the data is records (profiles, consent, audit, attendance, progress history), which is Postgres's strength. One database means one place to back up, secure and erase personal data, and no code to keep two stores in sync. Neon Free wakes automatically on the next query and can restore the last 6 hours. AuraDB Free pauses after three idle days and keeps one manual backup ([Neo4j quotas](https://neo4j.com/docs/aura/quotas-and-limits/)).
+**Why one database (D1).** The MVP's relationship questions are shallow: a three-level hierarchy (the two leadership posts sit outside the tree), family one or two hops away, and direct course enrolment. Most of the data is records (profiles, consent, audit, attendance, progress history), which is Postgres's strength. One database means one place to back up, secure and erase personal data, and no code to keep two stores in sync. Neon Free wakes automatically on the next query and can restore the last 6 hours. AuraDB Free pauses after three idle days and keeps one manual backup ([Neo4j quotas](https://neo4j.com/docs/aura/quotas-and-limits/)).
 
 **When to add Neo4j.** A later phase may need deep, open-ended graph questions: how two people are connected, recommendations based on relationships, or network analysis. Neo4j can be added then as a read-only copy, fed from Postgres. `membership` and `relationship` are already stored as link tables, so nothing needs redesigning.
 
 ## 5. Data model
 
-All data lives in 14 Postgres tables, covering people, structure, engagement, access and audit. All IDs are UUIDv7. Every row has `created_at/by` and `updated_at/by` columns, and a `version` column for optimistic locking.
+All data lives in 15 Postgres tables, covering people, structure, engagement, access and audit. All IDs are UUIDv7. Every row has `created_at/by` and `updated_at/by` columns, and a `version` column for optimistic locking.
 
 **Postgres tables**
 
@@ -168,6 +178,7 @@ erDiagram
   person ||--o| app_user : "signs in as"
   app_user ||--o{ user_session : has
   person ||--o{ membership : has
+  person ||--o{ leadership_post : holds
   org_unit ||--o{ membership : "unit_id"
   org_unit ||--o{ org_unit : "parent_id"
   grp ||--o{ membership : "group_id"
@@ -186,9 +197,10 @@ Person sits at the centre. Membership ties a person to a hierarchy unit or a gro
 | `person`             | legal_name, initiated_name, display_name, gender, dob, birth_year, hometown, locality, workplace, kc_since_year, phone_e164, email, whatsapp_e164, notes, status, guardian_person_id | Phone numbers normalised to E.164. Status is active, inactive, moved, deceased or archived. A trigram index on the names supports fuzzy search.                  |
 | `person_consent`     | person_id, notice_version, method, granted_at, recorded_by, withdrawn_at                                                                                                             | Method is self (online), paper form or recorded by a leader. Under-18s need a guardian's consent.                                                                |
 | `person_visibility`  | person_id, field_group, level                                                                                                                                                        | Field groups: contact, personal, work, spiritual. Levels: private, leaders, admins. Default: leaders.                                                            |
-| `org_unit`           | kind, parent_id, name, locality, meeting_day, active                                                                                                                                 | The kind is sector, circle or bhakti_vriksha. A check enforces the parent's kind (a circle sits under a sector, a BV under a circle).                            |
+| `org_unit`           | kind, parent_id, name, locality, meeting_day, active                                                                                                                                 | The kind is circle, sector or bhakti_vriksha. A check enforces the parent's kind: circles are the roots, a sector sits under a circle and a BV under a sector. |
 | `grp`                | kind, name, description, starts_on, ends_on, active                                                                                                                                  | The kind is service, initiative, yatra, harinama, course or other.                                                                                               |
-| `membership`         | person_id, unit_id or group_id (exactly one), role, start_date, end_date, end_reason                                                                                                 | Roles: member, leader, co_leader, owner, facilitator. Leaving sets end_date, so history is never deleted. One active BV per person (Q3).                         |
+| `membership`         | person_id, unit_id or group_id (exactly one), role, start_date, end_date, end_reason                                                                                                 | Roles: member, leader, co_leader, owner, facilitator. Leaving sets end_date, so history is never deleted. One active BV per person (Q3). Every active unit has exactly one active `leader`. Ending a leader's membership needs a successor in the same transaction. The UI shows the title for the unit's kind: Circle-Servant (Cakra-Pati), Sector-Servant (Upacakra-Pati) or Servant-Leader. |
+| `leadership_post`    | person_id, post, start_date, end_date                                                                                                                                                | Post is program_director or supervising_preacher. Each post has exactly one active holder. Ending one needs a successor in the same transaction. Holders' scope is the whole tree. |
 | `course_session`     | group_id, seq_no, held_on, topic                                                                                                                                                     | Allowed only for groups of kind course.                                                                                                                          |
 | `attendance`         | session_id, person_id, status, marked_by, marked_at                                                                                                                                  | Status is present, absent or excused. One row per person per session. A view gives each participant's sessions attended, first and last dates, and engagement %. |
 | `progress_indicator` | key, label, value_type, unit, active                                                                                                                                                 | Configured by an admin and seeded for Q1.                                                                                                                        |
@@ -229,7 +241,7 @@ Access is denied unless a rule allows it. Each rule combines a role, a scope and
 | Family links                                     | Yes                                 | In scope                                                             | Request a link (an admin approves) |
 | Export CSV, import, view audit log, manage users | Yes                                 | No                                                                   | No                                 |
 
-A leader's scope is every unit they lead, with all units below it, plus every group they own. Scope is worked out in Postgres on each request and cached for the length of that request.
+A leader's scope is every unit they lead, with all units below it, plus every group they own. The Program Director and Supervising Preacher are leaders whose scope is every unit. They have the same rights as the Leader column, across the whole tree, but not Admin rights such as managing the hierarchy, export or the audit log. Scope is worked out in Postgres on each request and cached for the length of that request.
 
 **Privacy and consent**
 
@@ -279,7 +291,7 @@ The API is a versioned REST API, `/api/v1`, described by OpenAPI 3.1 generated f
 
   - Sign-in
 
-  - Dashboard: counts by sector, recent changes, follow-up lists
+  - Dashboard: counts by circle and sector, recent changes, follow-up lists
 
   - Directory: search and filters
 
@@ -287,7 +299,7 @@ The API is a versioned REST API, `/api/v1`, described by OpenAPI 3.1 generated f
 
   - Member form, with the duplicate warning
 
-  - Hierarchy explorer: tree, drill-down and roll-up counts
+  - Hierarchy explorer: the Program Director and Supervising Preacher at the top, then the tree with each unit's leader by title, drill-down and roll-up counts
 
   - Groups: list and detail
 
@@ -385,7 +397,7 @@ OpenTelemetry is built in from the first commit. Every request can be followed f
 
   - Sign-in success and failure counts
 
-  - Business gauges: active members, members per sector, attendance marked this week, profiles without consent
+  - Business gauges: active members, members per circle and sector, units or posts without a leader (should always be 0), attendance marked this week, profiles without consent
 
 - **Frontend:** Grafana Faro captures JavaScript errors, Core Web Vitals, route timings and failed API calls.
 
@@ -409,12 +421,12 @@ Every pull request runs four test layers against a real Postgres container, not 
 
 | Layer               | Tools                                                  | What it proves                                                                                                                            | Gate                                                            |
 |---------------------|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| Unit (API)          | Vitest                                                 | Domain rules: duplicate scoring, engagement calculation, scope resolution, visibility masking, phone normalisation, hierarchy kind rules  | 85% lines and branches on the `domain/` and `services/` folders |
+| Unit (API)          | Vitest                                                 | Domain rules: duplicate scoring, engagement calculation, scope resolution, visibility masking, phone normalisation, hierarchy kind rules, leader-required and handover rules | 85% lines and branches on the `domain/` and `services/` folders |
 | Unit (web)          | Vitest, React Testing Library, MSW                     | Forms, validation messages, permission-aware UI, attendance grid behaviour                                                                | 75% lines                                                       |
 | Integration (API)   | Vitest, Testcontainers (Postgres 17), Fastify `inject` | Each endpoint end to end through a real database: transactions, constraints, hierarchy and scope queries, migrations up and down          | Every endpoint covered                                          |
-| Permission matrix   | Table-driven integration suite                         | Every endpoint × role (anonymous, member, leader in scope, leader out of scope, admin) gives the expected allow or deny and field masking | 100% of endpoints; must pass                                    |
+| Permission matrix   | Table-driven integration suite                         | Every endpoint × role (anonymous, member, leader in scope, leader out of scope, Program Director or Supervising Preacher, admin) gives the expected allow or deny and field masking | 100% of endpoints; must pass                                    |
 | Contract            | OpenAPI diff in CI                                     | No unintended breaking change to `/api/v1`, which the mobile app will rely on                                                             | No breaking diff without a version bump                         |
-| End-to-end          | Playwright on the Docker Compose stack with seed data  | The six journeys in section 3, on desktop and a 360 px phone viewport, with axe accessibility checks                                      | All pass                                                        |
+| End-to-end          | Playwright on the Docker Compose stack with seed data  | The seven journeys in section 3, on desktop and a 360 px phone viewport, with axe accessibility checks                                      | All pass                                                        |
 | Smoke (post-deploy) | Playwright against staging, then prod                  | Sign-in page loads, `/readyz` is green, read-only API checks                                                                              | Deployment rolls back on failure                                |
 
 **Rules that keep tests trustworthy**
@@ -429,7 +441,7 @@ Every pull request runs four test layers against a real Postgres container, not 
 
 A seed generator, `pnpm seed --size=small|medium|large --seed=108`, builds a realistic congregation with `@faker-js/faker` (`en_IN` locale). The same seed number always produces the same data.
 
-- **Structure:** 3 sectors, 9 circles and 27 Bhakti Vrikshas named after holy places (Dwarka, Puri, Govardhan, Vrindavan, Mayapur and others).
+- **Structure:** a Program Director, a Supervising Preacher, 3 circles, 9 sectors and 36 Bhakti Vrikshas, matching the organisation chart. Every unit has a leader. The BVs are named after holy places (Dwarka, Puri, Govardhan, Vrindavan, Mayapur and others).
 
 - **People:** 300 members (small) or 10,000 (large), living in Whitefield-area localities (Whitefield, Brookefield, Hoodi, Marathahalli, Varthur, KR Puram, Kadugodi). About 30% are in family units, and a few are minors linked to guardians.
 

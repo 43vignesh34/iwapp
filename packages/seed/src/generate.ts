@@ -33,32 +33,32 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
   const date = (from: string, to: string) =>
     faker.date.between({ from, to }).toISOString().slice(0, 10);
 
-  // 1. Hierarchy: 3 sectors × 3 circles × 3 BVs.
+  // 1. Hierarchy (ADR 0013): 3 circles × 3 sectors × 4 BVs, matching the organisation chart.
   const orgUnits: SeedOrgUnit[] = [];
   const bvs: SeedOrgUnit[] = [];
   const circles: SeedOrgUnit[] = [];
   const sectors: SeedOrgUnit[] = [];
   let place = 0;
-  for (let s = 1; s <= 3; s++) {
-    const sector: SeedOrgUnit = { id: newId(), kind: 'sector', name: `Sector ${String(s)}` };
-    sectors.push(sector);
-    orgUnits.push(sector);
-    for (let c = 1; c <= 3; c++) {
-      const circle: SeedOrgUnit = {
+  for (let c = 1; c <= 3; c++) {
+    const circle: SeedOrgUnit = { id: newId(), kind: 'circle', name: `Circle ${String(c)}` };
+    circles.push(circle);
+    orgUnits.push(circle);
+    for (let s = 1; s <= 3; s++) {
+      const sector: SeedOrgUnit = {
         id: newId(),
-        kind: 'circle',
-        parentId: sector.id,
-        parentKind: 'sector',
-        name: `Circle ${String(s)}.${String(c)}`,
+        kind: 'sector',
+        parentId: circle.id,
+        parentKind: 'circle',
+        name: `Sector ${String(c)}.${String(s)}`,
       };
-      circles.push(circle);
-      orgUnits.push(circle);
-      for (let b = 1; b <= 3; b++) {
+      sectors.push(sector);
+      orgUnits.push(sector);
+      for (let b = 1; b <= 4; b++) {
         const bv: SeedOrgUnit = {
           id: newId(),
           kind: 'bhakti_vriksha',
-          parentId: circle.id,
-          parentKind: 'circle',
+          parentId: sector.id,
+          parentKind: 'sector',
           name: `${HOLY_PLACES[place++] ?? 'BV'} Bhakti Vriksha`,
           locality: faker.helpers.arrayElement(LOCALITIES),
           meetingDay: faker.helpers.arrayElement(WEEKDAYS),
@@ -125,20 +125,21 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
   };
 
   const dwarka = bvs[0];
-  const udupi = bvs[9]; // first BV of Sector 2
+  const srirangam = bvs[12]; // first BV of Circle 2, so outside the test circle leader's scope
   const firstCircle = circles[0];
-  if (!dwarka || !udupi || !firstCircle) throw new Error('hierarchy generation failed');
+  if (!dwarka || !srirangam || !firstCircle) throw new Error('hierarchy generation failed');
 
-  // Test users: member and BV leader in Dwarka (Circle 1.1); circle leader leads Circle 1.1.
+  // Test users: member and BV leader in Dwarka (Sector 1.1, Circle 1); the circle leader leads
+  // Circle 1, the top level, so their scope exercises the full recursion circle → sector → BV.
   join(testPeople.member, dwarka, 'member');
   join(testPeople.bvLeader, dwarka, 'member');
   join(testPeople.bvLeader, dwarka, 'leader');
   join(testPeople.circleLeader, firstCircle, 'leader');
-  join(testPeople.otherLeader, udupi, 'member');
-  join(testPeople.otherLeader, udupi, 'leader');
+  join(testPeople.otherLeader, srirangam, 'member');
+  join(testPeople.otherLeader, srirangam, 'leader');
   membersOf.get(dwarka.id)?.push(testPeople.member, testPeople.bvLeader);
-  membersOf.get(udupi.id)?.push(testPeople.otherLeader);
-  const ledByTestUser = new Set([dwarka.id, udupi.id]);
+  membersOf.get(srirangam.id)?.push(testPeople.otherLeader);
+  const ledByTestUser = new Set([dwarka.id, srirangam.id]);
 
   for (const p of people.slice(Object.keys(TEST_USERS).length)) {
     if (!faker.datatype.boolean(0.85)) continue;
@@ -164,18 +165,18 @@ export function generate({ size, seed }: GenerateOptions): SeedData {
       .filter(
         (bv) =>
           bv.parentId === unit.id ||
-          circles.find((c) => c.id === bv.parentId)?.parentId === unit.id,
+          sectors.find((s) => s.id === bv.parentId)?.parentId === unit.id,
       )
       .flatMap((bv) => membersOf.get(bv.id) ?? [])
       .filter((p) => p.status === 'active' && !isTestPerson(p));
+  for (const sector of sectors) {
+    const leader = faker.helpers.arrayElement(activeUnder(sector));
+    join(leader, sector, 'leader');
+  }
   for (const circle of circles) {
     if (circle.id === firstCircle.id) continue; // led by the test circle leader
     const leader = faker.helpers.arrayElement(activeUnder(circle));
     join(leader, circle, 'leader');
-  }
-  for (const sector of sectors) {
-    const leader = faker.helpers.arrayElement(activeUnder(sector));
-    join(leader, sector, 'leader');
   }
 
   // 5. App users: only the test accounts. Real users are invited by an admin (T7).

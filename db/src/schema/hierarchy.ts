@@ -19,9 +19,9 @@ export const orgUnitKind = pgEnum('org_unit_kind', ['sector', 'circle', 'bhakti_
 export const weekday = pgEnum('weekday', ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
 /**
- * The Sector → Circle → Bhakti Vriksha tree (spec §5). One table, pointing at itself.
+ * The Circle → Sector → Bhakti Vriksha tree (spec §5, ADR 0013). One table, pointing at itself.
  *
- * "A circle's parent must be a sector; a BV's parent must be a circle" is enforced by the
+ * "A sector's parent must be a circle; a BV's parent must be a sector" is enforced by the
  * database, not just the app. A CHECK constraint can only see its own row, so each row also
  * stores its parent's kind, and a composite foreign key (parent_id, parent_kind) → (id, kind)
  * makes Postgres confirm that the parent really is of that kind.
@@ -49,9 +49,9 @@ export const orgUnit = pgTable(
     }),
     check(
       'org_unit_parent_kind_rule',
-      sql`(${t.kind} = 'sector' AND ${t.parentId} IS NULL AND ${t.parentKind} IS NULL)
-       OR (${t.kind} = 'circle' AND ${t.parentId} IS NOT NULL AND ${t.parentKind} = 'sector')
-       OR (${t.kind} = 'bhakti_vriksha' AND ${t.parentId} IS NOT NULL AND ${t.parentKind} = 'circle')`,
+      sql`(${t.kind} = 'circle' AND ${t.parentId} IS NULL AND ${t.parentKind} IS NULL)
+       OR (${t.kind} = 'sector' AND ${t.parentId} IS NOT NULL AND ${t.parentKind} = 'circle')
+       OR (${t.kind} = 'bhakti_vriksha' AND ${t.parentId} IS NOT NULL AND ${t.parentKind} = 'sector')`,
     ),
     check('org_unit_name_not_blank', sql`btrim(${t.name}) <> ''`),
     // No two siblings share a name. NULLS NOT DISTINCT makes this hold for sectors (parent NULL).

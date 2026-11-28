@@ -21,43 +21,85 @@ async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined>
   }
 }
 
-describe('org_unit tree rules (enforced by Postgres)', () => {
-  it('rejects a BV directly under a sector, even if it lies about the parent kind', async () => {
+describe('org_unit tree rules (enforced by Postgres, ADR 0013: circle → sector → BV)', () => {
+  it('accepts circle → sector → BV and rejects the old sector → circle order', async () => {
+    const [circle] = await database.db
+      .insert(orgUnit)
+      .values({ kind: 'circle', name: 'Order test circle' })
+      .returning();
+    if (!circle) throw new Error('circle insert failed');
+
     const [sector] = await database.db
       .insert(orgUnit)
-      .values({ kind: 'sector', name: 'Rule test sector' })
+      .values({ kind: 'sector', parentId: circle.id, parentKind: 'circle', name: 'Order sector' })
       .returning();
-    if (!sector) throw new Error('insert failed');
+    if (!sector) throw new Error('sector insert failed');
 
-    // Honest about the parent kind → the CHECK constraint rejects the combination.
     expect(
       await pgErrorCode(
         database.db.insert(orgUnit).values({
           kind: 'bhakti_vriksha',
           parentId: sector.id,
           parentKind: 'sector',
+          name: 'Order BV',
+        }),
+      ),
+    ).toBeUndefined();
+
+    // The old order is now illegal: a circle can't sit under a sector, and a sector can't be a root.
+    expect(
+      await pgErrorCode(
+        database.db.insert(orgUnit).values({
+          kind: 'circle',
+          parentId: sector.id,
+          parentKind: 'sector',
+          name: 'Upside-down circle',
+        }),
+      ),
+    ).toBe('23514'); // check_violation
+    expect(
+      await pgErrorCode(
+        database.db.insert(orgUnit).values({ kind: 'sector', name: 'Root sector' }),
+      ),
+    ).toBe('23514');
+  });
+
+  it('rejects a BV directly under a circle, even if it lies about the parent kind', async () => {
+    const [circle] = await database.db
+      .insert(orgUnit)
+      .values({ kind: 'circle', name: 'Rule test circle' })
+      .returning();
+    if (!circle) throw new Error('insert failed');
+
+    // Honest about the parent kind → the CHECK constraint rejects the combination.
+    expect(
+      await pgErrorCode(
+        database.db.insert(orgUnit).values({
+          kind: 'bhakti_vriksha',
+          parentId: circle.id,
+          parentKind: 'circle',
           name: 'Bad BV',
         }),
       ),
     ).toBe('23514'); // check_violation
 
-    // Claims the parent is a circle → the composite foreign key finds no such (id, kind).
+    // Claims the parent is a sector → the composite foreign key finds no such (id, kind).
     expect(
       await pgErrorCode(
         database.db.insert(orgUnit).values({
           kind: 'bhakti_vriksha',
-          parentId: sector.id,
-          parentKind: 'circle',
+          parentId: circle.id,
+          parentKind: 'sector',
           name: 'Lying BV',
         }),
       ),
     ).toBe('23503'); // foreign_key_violation
   });
 
-  it('rejects two sectors with the same name (NULLS NOT DISTINCT)', async () => {
-    await database.db.insert(orgUnit).values({ kind: 'sector', name: 'Twin' });
+  it('rejects two circles with the same name (NULLS NOT DISTINCT)', async () => {
+    await database.db.insert(orgUnit).values({ kind: 'circle', name: 'Twin' });
     expect(
-      await pgErrorCode(database.db.insert(orgUnit).values({ kind: 'sector', name: 'Twin' })),
+      await pgErrorCode(database.db.insert(orgUnit).values({ kind: 'circle', name: 'Twin' })),
     ).toBe('23505'); // unique_violation
   });
 });
@@ -75,7 +117,7 @@ describe('the seed', () => {
       .from(sql`(select 1) as one`);
     expect(counts).toEqual({
       people: 300,
-      units: 39,
+      units: 48,
       memberships: data.memberships.length,
     });
   });

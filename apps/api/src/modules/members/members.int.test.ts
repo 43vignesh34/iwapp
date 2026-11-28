@@ -64,7 +64,7 @@ describe('GET /api/v1/members', () => {
     expect(new Set(items.map((m) => m.bhaktiVriksha))).toEqual(new Set(['Dwarka Bhakti Vriksha']));
   });
 
-  it("a circle leader sees their circle's three BVs", async () => {
+  it("a circle leader sees the members of every BV in their circle's sectors", async () => {
     const ids = await allPages('circleLeader', 100);
     const items = (
       await get('admin', '/api/v1/members?limit=100&q=Test')

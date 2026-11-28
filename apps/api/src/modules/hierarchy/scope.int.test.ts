@@ -38,33 +38,38 @@ describe('scopeUnitIds (recursive CTE over org_unit)', () => {
     expect(await unitNames(ids)).toEqual(['Dwarka Bhakti Vriksha']);
   });
 
-  it('a circle leader sees the circle and its three BVs', async () => {
-    const ids = await scopeUnitIds(
-      ctx.database.db,
-      await personIdOf(TEST_USERS.circleLeader.email),
-    );
-    expect(await unitNames(ids)).toEqual([
-      'Circle 1.1',
-      'Dwarka Bhakti Vriksha',
-      'Govardhan Bhakti Vriksha',
-      'Puri Bhakti Vriksha',
-    ]);
-  });
-
-  it('a sector leader sees the sector, 3 circles and 9 BVs (recursion goes two levels down)', async () => {
+  it('a sector leader sees the sector and its four BVs', async () => {
     const [sectorLead] = await ctx.database.db
       .select({ personId: membership.personId })
       .from(membership)
       .innerJoin(orgUnit, eq(orgUnit.id, membership.unitId))
       .where(
         and(
-          eq(orgUnit.name, 'Sector 1'),
+          eq(orgUnit.name, 'Sector 1.1'),
           eq(membership.role, 'leader'),
           isNull(membership.endDate),
         ),
       );
     if (!sectorLead) throw new Error('no sector leader');
-    expect(await scopeUnitIds(ctx.database.db, sectorLead.personId)).toHaveLength(13);
+    const ids = await scopeUnitIds(ctx.database.db, sectorLead.personId);
+    expect(await unitNames(ids)).toEqual([
+      'Dwarka Bhakti Vriksha',
+      'Govardhan Bhakti Vriksha',
+      'Puri Bhakti Vriksha',
+      'Sector 1.1',
+      'Vrindavan Bhakti Vriksha',
+    ]);
+  });
+
+  it('a circle leader sees the circle, 3 sectors and 12 BVs (recursion goes two levels down)', async () => {
+    const ids = await scopeUnitIds(
+      ctx.database.db,
+      await personIdOf(TEST_USERS.circleLeader.email),
+    );
+    expect(ids).toHaveLength(16);
+    expect(await unitNames(ids)).toEqual(
+      expect.arrayContaining(['Circle 1', 'Sector 1.3', 'Dwarka Bhakti Vriksha']),
+    );
   });
 
   it('an ended leadership no longer counts', async () => {
