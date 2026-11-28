@@ -1,4 +1,4 @@
-import { appUser, membership, orgUnit } from '@iwapp/db';
+import { appUser, leadershipPost, membership, orgUnit } from '@iwapp/db';
 import { TEST_USERS } from '@iwapp/seed';
 import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -72,6 +72,31 @@ describe('scopeUnitIds (recursive CTE over org_unit)', () => {
     );
   });
 
+  it('the Supervising Preacher and the Program Director see the whole tree (ADR 0013)', async () => {
+    const preacherIds = await scopeUnitIds(
+      ctx.database.db,
+      await personIdOf(TEST_USERS.preacher.email),
+    );
+    expect(preacherIds).toHaveLength(48);
+
+    const [director] = await ctx.database.db
+      .select({ personId: leadershipPost.personId })
+      .from(leadershipPost)
+      .where(and(eq(leadershipPost.post, 'program_director'), isNull(leadershipPost.endDate)));
+    if (!director) throw new Error('no program director');
+    expect(await scopeUnitIds(ctx.database.db, director.personId)).toHaveLength(48);
+  });
+
+  it('an archived circle drops out of a post holder scope, with everything under it', async () => {
+    const preacherId = await personIdOf(TEST_USERS.preacher.email);
+    await ctx.database.db
+      .update(orgUnit)
+      .set({ active: false })
+      .where(eq(orgUnit.name, 'Circle 3'));
+    expect(await scopeUnitIds(ctx.database.db, preacherId)).toHaveLength(32);
+    await ctx.database.db.update(orgUnit).set({ active: true }).where(eq(orgUnit.name, 'Circle 3'));
+  });
+
   it('an ended leadership no longer counts', async () => {
     const leaderId = await personIdOf(TEST_USERS.otherLeader.email);
     await ctx.database.db
@@ -83,5 +108,13 @@ describe('scopeUnitIds (recursive CTE over org_unit)', () => {
       .update(membership)
       .set({ endDate: null })
       .where(and(eq(membership.personId, leaderId), eq(membership.role, 'leader')));
+  });
+
+  it('an ended post no longer counts', async () => {
+    const preacherId = await personIdOf(TEST_USERS.preacher.email);
+    const holding = eq(leadershipPost.personId, preacherId);
+    await ctx.database.db.update(leadershipPost).set({ endDate: '2026-11-01' }).where(holding);
+    expect(await scopeUnitIds(ctx.database.db, preacherId)).toEqual([]);
+    await ctx.database.db.update(leadershipPost).set({ endDate: null }).where(holding);
   });
 });

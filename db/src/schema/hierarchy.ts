@@ -117,3 +117,39 @@ export const membership = pgTable(
     index('membership_unit_id_idx').on(t.unitId),
   ],
 );
+
+export const leadershipPostKind = pgEnum('leadership_post_kind', [
+  'program_director',
+  'supervising_preacher',
+]);
+
+/**
+ * The two leadership levels ABOVE the Circle → Sector → BV tree (ADR 0013): Program Director and
+ * Supervising Preacher. They are posts held by a person, not organisational units, so nobody is a
+ * "member" of them. A holder's scope is the whole tree (hierarchy.scopeUnitIds).
+ *
+ * History works like membership: ending a post sets end_date; rows are never deleted.
+ */
+export const leadershipPost = pgTable(
+  'leadership_post',
+  {
+    id: id(),
+    personId: uuid()
+      .notNull()
+      .references(() => person.id),
+    post: leadershipPostKind().notNull(),
+    startDate: date().notNull().defaultNow(),
+    endDate: date(),
+    endReason: text(),
+    ...auditColumns(),
+  },
+  (t) => [
+    check('leadership_post_dates', sql`${t.endDate} IS NULL OR ${t.endDate} >= ${t.startDate}`),
+    check('leadership_post_end_reason', sql`${t.endReason} IS NULL OR ${t.endDate} IS NOT NULL`),
+    // Spec A9: one active holder per post.
+    uniqueIndex('leadership_post_one_active_holder')
+      .on(t.post)
+      .where(sql`${t.endDate} IS NULL`),
+    index('leadership_post_person_id_idx').on(t.personId),
+  ],
+);

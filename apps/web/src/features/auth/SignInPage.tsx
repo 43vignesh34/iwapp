@@ -16,6 +16,7 @@ const TEST_ACCOUNTS = [
   { value: 'leader@iwapp.test', label: 'BV leader (Dwarka)' },
   { value: 'circle-leader@iwapp.test', label: 'Circle leader (Circle 1)' },
   { value: 'other-leader@iwapp.test', label: 'BV leader (Srirangam, Circle 2)' },
+  { value: 'preacher@iwapp.test', label: 'Supervising Preacher (whole tree)' },
   { value: 'admin@iwapp.test', label: 'Admin' },
 ];
 

@@ -8,6 +8,7 @@
  *   member            member@         a member of Dwarka BV; leads nothing
  *   leaderInScope     leader@         leads Dwarka BV, so Dwarka's members are in scope
  *   leaderOutOfScope  other-leader@   leads Srirangam BV (Circle 2), so Dwarka is out of scope
+ *   postHolder        preacher@       the Supervising Preacher (ADR 0013): a leader over the whole tree
  *   admin             admin@
  */
 import { appUser, person } from '@iwapp/db';
@@ -17,12 +18,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { seededApp } from './app.ts';
 import { signIn, withSession, type CookieJar } from './session.ts';
 
-type Persona = 'anonymous' | 'member' | 'leaderInScope' | 'leaderOutOfScope' | 'admin';
-const PERSONAS: Persona[] = ['anonymous', 'member', 'leaderInScope', 'leaderOutOfScope', 'admin'];
+type Persona =
+  'anonymous' | 'member' | 'leaderInScope' | 'leaderOutOfScope' | 'postHolder' | 'admin';
+const PERSONAS: Persona[] = [
+  'anonymous',
+  'member',
+  'leaderInScope',
+  'leaderOutOfScope',
+  'postHolder',
+  'admin',
+];
 const EMAIL: Record<Exclude<Persona, 'anonymous'>, string> = {
   member: TEST_USERS.member.email,
   leaderInScope: TEST_USERS.bvLeader.email,
   leaderOutOfScope: TEST_USERS.otherLeader.email,
+  postHolder: TEST_USERS.preacher.email,
   admin: TEST_USERS.admin.email,
 };
 
@@ -51,6 +61,7 @@ const ALL_SIGNED_IN = (status: number, anonymous = 401): Record<Persona, number>
   member: status,
   leaderInScope: status,
   leaderOutOfScope: status,
+  postHolder: status,
   admin: status,
 });
 const ADMIN_ONLY = (status: number): Record<Persona, number> => ({
@@ -58,6 +69,7 @@ const ADMIN_ONLY = (status: number): Record<Persona, number> => ({
   member: 403,
   leaderInScope: 403,
   leaderOutOfScope: 403,
+  postHolder: 403,
   admin: status,
 });
 
@@ -94,13 +106,28 @@ export const MATRIX: MatrixRow[] = [
     route: '/api/v1/members',
     url: () => '/api/v1/members',
     // Leaders list their own scope (out-of-scope leaders still get 200, with their own members).
-    expect: { anonymous: 401, member: 403, leaderInScope: 200, leaderOutOfScope: 200, admin: 200 },
+    expect: {
+      anonymous: 401,
+      member: 403,
+      leaderInScope: 200,
+      leaderOutOfScope: 200,
+      postHolder: 200,
+      admin: 200,
+    },
   },
   {
     method: 'GET',
     route: '/api/v1/members/{id}',
     url: (fx) => `/api/v1/members/${fx.dwarkaMemberId}`,
-    expect: { anonymous: 401, member: 200, leaderInScope: 200, leaderOutOfScope: 403, admin: 200 },
+    // The Supervising Preacher's scope is the whole tree, so Dwarka is in it.
+    expect: {
+      anonymous: 401,
+      member: 200,
+      leaderInScope: 200,
+      leaderOutOfScope: 403,
+      postHolder: 200,
+      admin: 200,
+    },
   },
   {
     method: 'PATCH',
@@ -109,7 +136,14 @@ export const MATRIX: MatrixRow[] = [
     body: () => ({ locality: `Matrix ${crypto.randomUUID().slice(0, 8)}` }),
     headers: async (fx) => ({ 'if-match': `"${String(await fx.versionOf(fx.dwarkaMemberId))}"` }),
     // Self and admins only: leaders editing contact details waits on open question Q2.
-    expect: { anonymous: 401, member: 200, leaderInScope: 403, leaderOutOfScope: 403, admin: 200 },
+    expect: {
+      anonymous: 401,
+      member: 200,
+      leaderInScope: 403,
+      leaderOutOfScope: 403,
+      postHolder: 403,
+      admin: 200,
+    },
   },
 ];
 
